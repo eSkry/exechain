@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+version = "0.0.1"
+name = "exechain"
+authors = [
+    { name="Леонов Артур", email="depish.eskry@yandex.ru" }
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+description = "Система сборки похожая по духу на make"
+readme = "README.md"
+
+
+requires-python = ">=3.8"
+
+dependencies = [
+    "requests",
+]
+
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+]
+
+dev = [
+  "black",
+  "pylint",
+]
+
+
+[project.urls]
+"Homepage" = "https://github.com/eSkry"
+"Bug Tracker" = "https://github.com/eSkry/"
+
+# При установке будут автоматически созданы исполняемые файлы в ~/.local/bin или в /usr/bin
+[project.scripts]
+# <команда> = <модуль откуда импортируем функцию>:<имя функции>
+exechain-make = 'exechain.cli.exechainmake:cli'

@@ -1,0 +1,82 @@
+from exechain.exechain import *
+
+
+def get_package_path():
+    import tomllib
+    with open("pyproject.toml", 'rb') as file:
+        data = tomllib.load(file)
+        VERSION = data['project']['version']
+    
+    return f"./dist/exechain-{VERSION}-py3-none-any.whl"
+
+PACKAGE = get_package_path()
+
+
+Target("all",
+    dependencies=[
+        TargetRef("package")
+    ]
+)
+
+
+Target("build",
+    dependencies=[
+        TargetRef(PACKAGE)
+    ]
+)
+
+
+Target(PACKAGE,
+    recept=[
+        Shell(f"pyproject-build")
+    ]
+)
+
+
+Target("force-build",
+    recept=[
+        Shell(f"pyproject-build")
+    ]
+)
+
+
+Target("package",
+    dependencies=[
+        TargetRef("build")
+    ]
+)
+
+
+Target("install",
+    dependencies=[
+        TargetRef("package")
+    ],
+    recept=[
+        Shell(f"pip3 install {PACKAGE}")
+    ]
+)
+
+
+Target("reinstall",
+    dependencies=[
+        TargetRef("package")
+    ],
+    recept=[
+        Shell(f"pip3 install {PACKAGE} --force-reinstall")
+    ]
+)
+
+
+Target("clean",
+    recept=[
+        Remove("dist"),
+        Remove("src/exechain.egg-info")
+    ]
+)
+
+
+Target("test",
+    recept=[
+        Shell("python3 ./tests/test.py -v")
+    ]
+)
