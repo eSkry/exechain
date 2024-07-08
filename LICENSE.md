@@ -1,4 +1,3 @@
-"""
 Copyright (c) 2024 Leonov Artur (depish.eskry@yandex.ru)
 
 Permission is hereby granted to use, copy, modify, and distribute this code in any form, provided that the above copyright notice and this permission notice appear in all copies.
@@ -14,4 +13,3 @@ Copyright (c) 2024 Леонов Артур (depish.eskry@yandex.ru)
 
 ОТКАЗ ОТ ОТВЕТСТВЕННОСТИ:
 Этот исходный код предоставляется "как есть" без каких-либо гарантий, явных или подразумеваемых, включая, но не ограничиваясь, подразумеваемыми гарантиями товарной пригодности и пригодности для конкретной цели. Вся ответственность за использование данного кода лежит на вас.
-"""
