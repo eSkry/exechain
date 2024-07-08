@@ -99,6 +99,7 @@ Target("sync-git-mirror",
     recept=[
         Shell("git pull && git fetch"),
         Shell("git checkout master"),
-        Shell("git push -u github")
+        Shell("git push -u github"),
+        Shell("git push -u origin")
     ]
 )
