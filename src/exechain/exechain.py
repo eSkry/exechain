@@ -23,6 +23,7 @@ from exechain.base import (
     ConditionalTarget, 
     BaseTool, 
     ForEachFileTarget,
+    TargetShellContains,
     get_target_by_name, 
     get_target_names,
     # make_targets_for_files
@@ -41,7 +42,6 @@ from exechain.git import (
     GitBranch, 
     GitRepository
 )
-
 
 from exechain.network import (
     Download

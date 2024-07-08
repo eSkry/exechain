@@ -22,7 +22,7 @@ from pathlib import Path
 import json
 import shutil
 import platform
-import requests
+import subprocess
 import glob
 import os
 
@@ -111,11 +111,11 @@ class Target:
         
         self.target_run_lock = True
         try:
-            for dependency in self.dependencies:
-                dependency(self.vars)
-            
-            if not self.target.exists():
+            if self.need_exec_target():
                 print(f"enter [target {str(self.target)}]")
+                for dependency in self.dependencies:
+                    dependency(self.vars)
+                
                 for cmd in self.recept:
                     if not cmd(self.vars):
                         exit_with_message(f"Ошибка при выполнении: [{str(cmd)}]", -1)
@@ -128,15 +128,10 @@ class Target:
         
         self.target_run_lock = False
         return True
-
-
-# Метатаргет смотрит не на наличие файла а на наличее метки о выполнении в кеше
-# class MetaTarget(Target):
-#     def __init__(self, target: str, dependencies: list["callable"] = [], recept: list["callable"] = []) -> None:
-#         super().__init__(target, dependencies, recept)
-
-#     def __call__(self):
-#         return super().__call__()
+    
+    
+    def need_exec_target(self) -> bool:
+        return not self.target.exists()
     
 
 class TargetRef:
@@ -170,6 +165,24 @@ class ConditionalTarget:
                 self.if_false()
         
         return True
+
+
+class TargetShellContains(Target):
+    def __init__(self, target: Path, check_command: str, dependencies: list = [], recept: list = []) -> None:
+        super().__init__(target, dependencies, recept)
+        self.check_command = check_command
+    
+    def need_exec_target(self) -> bool:
+        result = subprocess.run(
+            self.check_command, 
+            shell=True, 
+            check=True, 
+            text=True, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE
+        )
+        
+        return self.target_name not in result.stdout
 
 
 class ForEachFileTarget:

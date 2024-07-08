@@ -18,13 +18,11 @@ Target("all",
     ]
 )
 
-
 Target("build",
     dependencies=[
         TargetRef(PACKAGE)
     ]
 )
-
 
 Target(PACKAGE,
     recept=[
@@ -32,20 +30,17 @@ Target(PACKAGE,
     ]
 )
 
-
 Target("force-build",
     recept=[
         Shell(f"pyproject-build")
     ]
 )
 
-
 Target("package",
     dependencies=[
         TargetRef("build")
     ]
 )
-
 
 Target("install",
     dependencies=[
@@ -56,7 +51,6 @@ Target("install",
     ]
 )
 
-
 Target("reinstall",
     dependencies=[
         TargetRef("package")
@@ -66,7 +60,6 @@ Target("reinstall",
     ]
 )
 
-
 Target("clean",
     recept=[
         Remove("dist"),
@@ -74,9 +67,26 @@ Target("clean",
     ]
 )
 
-
 Target("test",
     recept=[
         Shell("python3 ./tests/test.py -v")
+    ]
+)
+
+TargetShellContains("git@github.com:eSkry/exechain.git", 
+    check_command="git remote -v",
+    recept=[
+        Shell("git remote add github git@github.com:eSkry/exechain.git")
+    ]
+)
+
+Target("sync-git-mirror",
+    dependencies=[
+        TargetRef("git@github.com:eSkry/exechain.git")
+    ],
+    recept=[
+        Shell("git pull && git fetch"),
+        Shell("git checkout master"),
+        Shell("git push -u github")
     ]
 )
