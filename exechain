@@ -73,6 +73,18 @@ Target("test",
     ]
 )
 
+Target("publish",
+    dependencies=[
+        TargetRef("clean"),
+        TargetRef("test"),
+        TargetRef("package")
+    ],
+    recept=[
+        Shell("python3 -m twine upload --repository gitverse ./dist/*"),
+        Shell("python3 -m twine upload --repository pypi ./dist/*")
+    ]
+)
+
 TargetShellContains("git@github.com:eSkry/exechain.git", 
     check_command="git remote -v",
     recept=[
