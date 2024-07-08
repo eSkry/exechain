@@ -29,7 +29,7 @@ class Copy(BaseTool):
         self.src = src
         self.dst  = dst
 
-    def __call__(self):
+    def __call__(self, vars = None):
         _src = _get_path(self.src)
 
         if not _src.exists():
@@ -49,7 +49,7 @@ class Makedirs(BaseTool):
         super().__init__()
         self.dir: Path = _get_path(dir)
 
-    def __call__(self):
+    def __call__(self, vars = None):
         self.dir.mkdir(parents=True, exist_ok=True)
         return True
 
@@ -59,7 +59,7 @@ class Touch(BaseTool):
         super().__init__()
         self.file: Path = _get_path(file)
 
-    def __call__(self):
+    def __call__(self, vars = None):
         self.file.touch(exist_ok=True)
         return True
 
@@ -71,7 +71,7 @@ class WriteFile(BaseTool):
         self.content: str = content
         self.mode = mode
     
-    def __call__(self):
+    def __call__(self, vars = None):
         print(f"write [file: {str(self.file)}]")
         with open(str(self.file), self.mode) as f:
             f.write(self.content)
@@ -84,7 +84,7 @@ class Remove(BaseTool):
         super().__init__()
         self.file_of_dir: Path = _get_path(file_or_dir)
 
-    def __call__(self):
+    def __call__(self, vars = None):
         print(f"remove [file_or_dir: {str(self.file_of_dir)}]")
         if self.file_of_dir.exists():
             if self.file_of_dir.is_dir():
@@ -105,7 +105,7 @@ class Chmod(BaseTool):
         self.mode = mode
     
 
-    def __call__(self):
+    def __call__(self, vars = None):
         print(f"chmod  [file_or_dir: {str(self.target)} mode: {self.mode}]")
         self.target.chmod(self.mode)
         return True
