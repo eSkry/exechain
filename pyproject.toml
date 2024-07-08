@@ -37,8 +37,8 @@ dev = [
 
 
 [project.urls]
-"Homepage" = "https://github.com/eSkry"
-"Bug Tracker" = "https://github.com/eSkry/"
+"Homepage" = "https://gitverse.ru/Depish/exechain"
+"Bug Tracker" = "https://gitverse.ru/Depish/exechain/tasktracker"
 
 # При установке будут автоматически созданы исполняемые файлы в ~/.local/bin или в /usr/bin
 [project.scripts]
