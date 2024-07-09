@@ -44,3 +44,4 @@ dev = [
 [project.scripts]
 # <команда> = <модуль откуда импортируем функцию>:<имя функции>
 exechain-make = 'exechain.cli.exechainmake:cli'
+ech = 'exechain.cli.exechainmake:cli'
