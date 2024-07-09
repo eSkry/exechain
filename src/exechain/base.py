@@ -164,24 +164,24 @@ class Target:
             return
 
         self.target_run_lock = True
-        try:
-            def _run_recept():
-                print(f"🔹 target [{self.target_name}]")
-                for cmd in self.recept:
-                    if not cmd(self.vars):
-                        exit_with_message(f"Ошибка при выполнении: {str(cmd)}", -1)
+        # try:
+        def _run_recept():
+            print(f"🔹 target [{self.target_name}]")
+            for cmd in self.recept:
+                if not cmd(self.vars):
+                    exit_with_message(f"Ошибка при выполнении: {str(cmd)}", -1)
+        
+        def _run_dependencies(dependency_list):
+            for dependency in dependency_list:
+                dependency._invoke(self, self.vars)
+        
+        need_exec, dep_list = self.need_exec_target()
+        if need_exec:
+            _run_dependencies(dep_list)
+            _run_recept()
             
-            def _run_dependencies(dependency_list):
-                for dependency in dependency_list:
-                    dependency._invoke(self, self.vars)
-            
-            need_exec, dep_list = self.need_exec_target()
-            if need_exec:
-                _run_dependencies(dep_list)
-                _run_recept()
-            
-        except Exception as e:
-            exit_with_message(f"‼️ Ошибка при выполнении: {str(e)}",  -2)
+        # except Exception as e:
+        #     exit_with_message(f"‼️ Ошибка при выполнении: {str(e)}",  -2)
         self.target_run_lock = False
 
     
