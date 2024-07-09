@@ -147,7 +147,7 @@ class Target:
             "target-name": self.target_name
         }
 
-    
+
     def __str__(self) -> str:
         return f"target '{self.target_name}'"
     
@@ -157,8 +157,11 @@ class Target:
     
     
     def _invoke(self, parent, vars = {}):
+        # TODO: Возможно стоит ставить флаг что цель была собрана и выполнена 
+        
         if self.target_run_lock:
-            raise Exception(f"❕ Предотвращение циклической зависимости {parent.target_name if parent else '_'} -> {self.target_name}")
+            print(f"❕ Предотвращение циклической зависимости {parent.target_name if parent else '_'} -> {self.target_name}")
+            return
 
         self.target_run_lock = True
         try:
@@ -166,7 +169,7 @@ class Target:
                 print(f"🔹 target [{self.target_name}]")
                 for cmd in self.recept:
                     if not cmd(self.vars):
-                        exit_with_message(f"Ошибка при выполнении: [{str(cmd)}]", -1)
+                        exit_with_message(f"Ошибка при выполнении: {str(cmd)}", -1)
             
             def _run_dependencies(dependency_list):
                 for dependency in dependency_list:
@@ -182,7 +185,7 @@ class Target:
         self.target_run_lock = False
 
     
-    def need_exec_target(self, restore_cache=False):
+    def need_exec_target(self, restore_cache: bool = False):
         if self.exec_cond_cache and not restore_cache:
             return self.exec_cond_cache
         
@@ -258,7 +261,7 @@ class TargetRef:
         """
         if self.target not in _TARGET_POOL:
             raise KeyError(f"not found target {self.target} for TargetRef class")
-        return _TARGET_POOL[self.target]()
+        return _TARGET_POOL[self.target]._invoke(parent, vars)
 
 
 class ConditionalTarget:
