@@ -26,15 +26,16 @@ from exechain.base import (
     TargetShellContains,
     TargetFileWithLine,
     get_target_by_name, 
-    get_target_names,
-    set_var,
-    get_var
-    # make_targets_for_files
+    get_target_names
 )
 
 from exechain.internal import (
     include,
-    which
+    which,
+    set_var,
+    get_var,
+    safe_format,
+    safe_format_with_global
 )
 
 from exechain.filesystem import (

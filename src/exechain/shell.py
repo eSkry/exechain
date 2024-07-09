@@ -17,7 +17,7 @@ Copyright (c) 2024 Леонов Артур (depish.eskry@yandex.ru)
 """
 
 from exechain.base import BaseTool
-from exechain.internal import exchain_replace_variables, safe_format
+from exechain.internal import exchain_replace_variables, safe_format, safe_format_with_global
 
 import os
 
@@ -28,7 +28,7 @@ class Shell(BaseTool):
         self.command = command
 
     def _invoke(self, vars: dict = {}):
-        command = safe_format(self.command, vars)
+        command = safe_format_with_global(self.command, vars)
         return os.system(command) == 0
     
     def __str__(self):
@@ -41,6 +41,6 @@ class Print(BaseTool):
         self.msg = msg
 
     def _invoke(self, vars: dict = {}):
-        tmp = safe_format(self.msg, vars)
+        tmp = safe_format_with_global(self.msg, vars)
         print(tmp)
         return True

@@ -22,7 +22,7 @@ import os
 from pathlib import Path
 
 
-from exechain.internal import _get_path, which, safe_format
+from exechain.internal import _get_path, which, safe_format, safe_format_with_global
 
 
 class GitBranch:
@@ -35,8 +35,8 @@ class GitBranch:
             raise Exception("git is not installed")
     
     def _invoke(self, vars: dict = {}):
-        path = safe_format(self.path, vars)
-        branch = safe_format(branch, vars)
+        path = safe_format_with_global(self.path, vars)
+        branch = safe_format_with_global(branch, vars)
 
         command = [str(self.git), 'checkout', branch]
         cur_dir = os.getcwd()
@@ -60,9 +60,9 @@ class GitRepository:
     
     
     def _invoke(self, vars: dict = {}):
-        url = safe_format(self.url, vars)
-        branch = safe_format(self.branch, vars)
-        target_directory = safe_format(self.target_directory, vars)
+        url = safe_format_with_global(self.url, vars)
+        branch = safe_format_with_global(self.branch, vars)
+        target_directory = safe_format_with_global(self.target_directory, vars)
         
         repo_path = target_directory
         if not target_directory:

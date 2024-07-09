@@ -18,7 +18,7 @@ Copyright (c) 2024 Леонов Артур (depish.eskry@yandex.ru)
 
 
 from exechain.base import BaseTool
-from exechain.internal import _get_path, safe_format
+from exechain.internal import _get_path, safe_format, safe_format_with_global
 
 import shutil
 from pathlib import Path
@@ -33,8 +33,8 @@ class Copy(BaseTool):
 
 
     def _invoke(self, vars: dict = {}):
-        src = safe_format(self.src, vars)
-        dst = safe_format(self.dst, vars)
+        src = safe_format_with_global(self.src, vars)
+        dst = safe_format_with_global(self.dst, vars)
         
         _src = _get_path(src)
 
@@ -57,7 +57,7 @@ class Makedirs(BaseTool):
 
 
     def _invoke(self, vars: dict = {}):
-        dir = _get_path(safe_format(self.dir, vars))
+        dir = _get_path(safe_format_with_global(self.dir, vars))
         dir.mkdir(parents=True, exist_ok=True)
         return True
 
@@ -69,7 +69,7 @@ class Touch(BaseTool):
 
 
     def _invoke(self, vars: dict = {}):
-        file = _get_path(safe_format(self.file, vars))
+        file = _get_path(safe_format_with_global(self.file, vars))
         file.touch(exist_ok=True)
         return True
 
@@ -83,9 +83,9 @@ class WriteFile(BaseTool):
     
     
     def _invoke(self, vars: dict = {}):
-        file = safe_format(self.file, vars)
-        content = safe_format(self.content, vars)
-        mode = safe_format(self.mode, vars)
+        file = safe_format_with_global(self.file, vars)
+        content = safe_format_with_global(self.content, vars)
+        mode = safe_format_with_global(self.mode, vars)
         
         print(f"write [file: {file}]")
         with open(file, mode) as f:
@@ -101,7 +101,7 @@ class Remove(BaseTool):
 
 
     def _invoke(self, vars: dict = {}):
-        path = _get_path(safe_format(self.file_of_dir, vars))
+        path = _get_path(safe_format_with_global(self.file_of_dir, vars))
         
         print(f"remove [{path}]")
         if path.exists():
@@ -123,8 +123,8 @@ class Chmod(BaseTool):
     
 
     def _invoke(self, vars: dict = {}):
-        target = _get_path(safe_format(self.target, vars))
-        mode = safe_format(self.mode, vars)
+        target = _get_path(safe_format_with_global(self.target, vars))
+        mode = safe_format_with_global(self.mode, vars)
         
         print(f"chmod  [{target} mode: {mode}]")
         target.chmod(mode)

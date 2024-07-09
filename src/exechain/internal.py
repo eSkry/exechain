@@ -23,6 +23,17 @@ import string
 from pathlib import Path
 
 
+_GLOBAL_VARIBLE_POOL: dict = {}
+
+
+def set_var(name: str, value) -> None:
+    _GLOBAL_VARIBLE_POOL[name] = value
+
+
+def get_var(name: str) -> any:
+    return _GLOBAL_VARIBLE_POOL.get(name, None)
+
+
 class SafeFormatter(string.Formatter):
     def get_value(self, key, args, kwargs):
         if isinstance(key, str):
@@ -34,6 +45,11 @@ class SafeFormatter(string.Formatter):
 _formatter = SafeFormatter()
 def safe_format(input: str, vars: dict):
     return _formatter.format(input, **vars)
+
+
+def safe_format_with_global(input: str, vars: dict = {}) -> str:
+    tmp = safe_format(input, _GLOBAL_VARIBLE_POOL)
+    return safe_format(tmp, vars)
 
 
 def which(name):
@@ -57,7 +73,6 @@ def _get_path(path) -> Path:
         return Path(path)
     else:
         return path
-
 
 
 def exchain_replace_variables(string: str, variables: dict) -> str:

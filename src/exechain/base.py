@@ -26,19 +26,10 @@ import subprocess
 import glob
 import os
 
-from exechain.internal import _get_path, file1_newer_file2, exit_with_message, safe_format
+from exechain.internal import _get_path, file1_newer_file2, exit_with_message, safe_format, safe_format_with_global
 
 
 _TARGET_POOL: dict = {}
-_GLOBAL_VARIBLE_POOL: dict = {}
-
-
-def set_var(name: str, value) -> None:
-    _GLOBAL_VARIBLE_POOL[name] = value
-
-
-def get_var(name: str) -> any:
-    return _GLOBAL_VARIBLE_POOL.get(name, None)
 
 
 def get_target_by_name(name: str ):
@@ -148,10 +139,7 @@ class Target:
     
     
     def _resolve_target_name(self) -> str:
-        # Применение локальных переменных
-        self.resolved_target_name = safe_format(self.target_str, self.vars_merged)
-        # Применение глобальных переменных
-        self.resolved_target_name = safe_format(self.resolved_target_name, _GLOBAL_VARIBLE_POOL)
+        self.resolved_target_name = safe_format_with_global(self.target_str, self.vars_merged)
         return self.resolved_target_name
     
     
@@ -244,7 +232,7 @@ class TargetRef:
         KeyError
             Если целевая задача не найдена в пуле целей (_TARGET_POOL), выбрасывается исключение с соответствующим сообщением.
         """
-        target = safe_format(self.target, _GLOBAL_VARIBLE_POOL)
+        target = safe_format_with_global(self.target, {})
         if parent:
             target = safe_format(target, parent.vars_merged)
             
@@ -299,7 +287,7 @@ class TargetShellContains(Target):
         if self.exec_cond_cache and not restore_cache:
             return self.exec_cond_cache
         
-        check_command = safe_format(self.check_command, self.vars_merged)
+        check_command = safe_format_with_global(self.check_command, self.vars_merged)
         result = subprocess.run(
             check_command, 
             shell=True, 
@@ -334,7 +322,7 @@ class TargetFileWithLine(Target):
         self.search_line = search_line
         
     def need_exec_target(self, restore_cache: bool = False) -> bool:
-        search_line = safe_format(self.search_line, self.vars_merged)
+        search_line = safe_format_with_global(self.search_line, self.vars_merged)
         
         with open(self.target, 'r', encoding='utf-8') as file:
             for line in file:
@@ -342,6 +330,17 @@ class TargetFileWithLine(Target):
                     return True
         return False
 
+
+class Files:
+    def __init__(self, target, file_pattern: str, depth: int = -1, first_detect_checking: bool = True) -> None:
+        self.target = target
+        self.file_pattern = file_pattern
+        self.depth = depth
+        self.first_detect_checking = first_detect_checking
+        
+    def _invoke(self, parent: Target):
+        target = safe_format_with_global(self.target, {})
+        
 
 class ForEachFileTarget:
     def __init__(self, 
@@ -361,7 +360,7 @@ class ForEachFileTarget:
         
     
     def _invoke(self, parent: Target):
-        target = safe_format(self.target, parent.vars_merged)
+        target = safe_format_with_global(self.target, parent.vars_merged)
         
         fpath = str(self.target / self.pattern)
         files = glob.glob(fpath)

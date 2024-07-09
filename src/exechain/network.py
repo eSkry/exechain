@@ -18,7 +18,7 @@ Copyright (c) 2024 Леонов Артур (depish.eskry@yandex.ru)
 
 
 from exechain.base import BaseTool
-from exechain.internal import _get_path, safe_format
+from exechain.internal import _get_path, safe_format, safe_format_with_global
 
 import requests
 import os
@@ -35,8 +35,8 @@ class Download(BaseTool):
         if self.save_path is None:
             self.save_path = self.url.split('/')[-1]
 
-        url = safe_format(self.url, vars)
-        path = safe_format(self.save_path, vars)
+        url = safe_format_with_global(self.url, vars)
+        path = safe_format_with_global(self.save_path, vars)
         
         print(f"download [url: {url} save_path: {path}]")
         try:
