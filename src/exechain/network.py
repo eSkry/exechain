@@ -17,7 +17,9 @@ Copyright (c) 2024 Леонов Артур (depish.eskry@yandex.ru)
 """
 
 
-from exechain.base import _get_path, BaseTool
+from exechain.base import BaseTool
+from exechain.internal import _get_path, safe_format
+
 import requests
 import os
 
@@ -27,29 +29,31 @@ class Download(BaseTool):
         super().__init__()
         self.url = url
         self.save_path = _get_path(save_path)
-        
-    def __call__(self):
+    
+    
+    def _invoke(self, vars: dict = {}):
         if self.save_path is None:
             self.save_path = self.url.split('/')[-1]
+
+        url = safe_format(self.url, vars)
+        path = safe_format(self.save_path, vars)
         
-        print(f"download [url: {str(self.url)} save_path: {str(self.save_path)}]")
+        print(f"download [url: {url} save_path: {path}]")
         try:
-            with requests.get(self.url, stream=True) as r:
+            with requests.get(url, stream=True) as r:
                 r.raise_for_status()
-                with open(str(self.save_path), 'wb') as f:
+                with open(path, 'wb') as f:
                     for chunk in r.iter_content(chunk_size=8192): 
                         f.write(chunk)
                         
             # Проверка, что файл существует
-            if not self.save_path.exists():
-                raise FileNotFoundError(f"Файл {self.save_path} не был создан.")
+            if not path.exists():
+                raise FileNotFoundError(f"Файл {path} не был создан.")
 
             # Дополнительная проверка на непустоту файла (опционально)
-            if os.path.getsize(str(self.save_path)) == 0:
-                raise ValueError(f"Файл {self.save_path} пуст.")
+            if os.path.getsize(str(path)) == 0:
+                raise ValueError(f"Файл {path} пуст.")
 
         except Exception as e:
             return False
         return True
-
-

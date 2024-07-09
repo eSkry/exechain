@@ -26,34 +26,19 @@ import subprocess
 import glob
 import os
 
-from exechain.internal import file1_newer_file2
-
-
-def which(name):
-    search_dirs = os.environ["PATH"].split(os.pathsep)
-    
-    for path in search_dirs:
-        test = Path(path) / name
-        if test.is_file() and os.access(test, os.X_OK):
-            return test
-
-    return None
-
-
-def exit_with_message(message, code):
-    print(message)
-    exit(code)
-
-
-def _get_path(path) -> Path:
-    if isinstance(path, str):
-        return Path(path)
-    else:
-        return path
+from exechain.internal import _get_path, file1_newer_file2, exit_with_message, safe_format
 
 
 _TARGET_POOL: dict = {}
-_VARIBLE_POOL: dict = {}
+_GLOBAL_VARIBLE_POOL: dict = {}
+
+
+def set_var(name: str, value) -> None:
+    _GLOBAL_VARIBLE_POOL[name] = value
+
+
+def get_var(name: str) -> any:
+    return _GLOBAL_VARIBLE_POOL.get(name, None)
 
 
 def get_target_by_name(name: str ):
@@ -80,6 +65,9 @@ class BaseTool:
     Инструмент - это callable который выполняется при выполнении инструкций у класса Target и его подклассов.
     """
     def __init__(self) -> None:
+        pass
+    
+    def _invoke(self, vars: dict = {}):
         pass
 
 
@@ -117,7 +105,11 @@ class Target:
         Список переменных которые будут использованы при выполнении цепочки действий. 
         Данные переменные могут использоваться для подстановки плейсхолдеров у строк.
     """
-    def __init__(self, target: Path, dependencies: list["Target"] = [], recept: list["callable"] = []) -> None:
+    def __init__(self, 
+                 target: Path, 
+                 dependencies: list["Target"] = [], 
+                 recept: list["callable"] = [],
+                 vars: dict = {}) -> None:
         """
         Args:
             target (Path): Путь к файлу или папке а так же цель для выполнения цепочки действий (сборки).
@@ -131,49 +123,71 @@ class Target:
         self.target: Path = _get_path(target)
         self.recept: list["callable"] = recept
         self.dependencies: list["Target"]  = dependencies
-        self.target_name = str(target)
-
-        if not dependencies and not recept:
-            raise Exception(f"error [target {str(self.target)}: nothing to do]")
+        self.target_str = str(target)
         
-        if self.target_name in _TARGET_POOL:
+        if self.target_str in _TARGET_POOL:
             raise Exception(f"error [target {str(self.target)}: already exists]")
         
-        _TARGET_POOL[self.target_name] = self
         self.target_run_lock = False
         self.exec_cond_cache = None
-                
-        self.vars = {
-            "target-name": self.target_name
-        }
+        
+        self.vars: dict = vars
+        self.vars["target-name"] = self.target_str
+        self.vars_merged: dict = self.vars
+        self.resolved_target_name: str = None
+        self._resolve_target_name()
+        _TARGET_POOL[self.resolved_target_name] = self
 
-
+    
     def __str__(self) -> str:
-        return f"target '{self.target_name}'"
+        return f"target '{self.target_str}'"
     
     
     def _is_file(self) -> bool:
         return True
     
     
-    def _invoke(self, parent, vars = {}):
-        # TODO: Возможно стоит ставить флаг что цель была собрана и выполнена 
+    def _resolve_target_name(self) -> str:
+        # Применение локальных переменных
+        self.resolved_target_name = safe_format(self.target_str, self.vars_merged)
+        # Применение глобальных переменных
+        self.resolved_target_name = safe_format(self.resolved_target_name, _GLOBAL_VARIBLE_POOL)
+        return self.resolved_target_name
+    
+    
+    def _update_vars(self, vars: dict):
+        self.vars_merged = vars.copy()
+        self.vars_merged.update(self.vars) # Так же переопределение переменных текущими значениями
+        
+        return self.vars_merged
+    
+    
+    def _invoke(self, parent):
+        # TODO: Возможно стоит ставить флаг что цель была собрана и выполнена
+        
+        if parent:
+            self._update_vars(parent.vars)
+        self._resolve_target_name()
         
         if self.target_run_lock:
-            print(f"❕ Предотвращение циклической зависимости {parent.target_name if parent else '_'} -> {self.target_name}")
+            print(f"❕ Предотвращение циклической зависимости {parent.resolved_target_name if parent else '_'} -> {self.resolved_target_name}")
             return
 
         self.target_run_lock = True
         # try:
         def _run_recept():
-            print(f"🔹 target [{self.target_name}]")
+            print(f"🔹 target [{self.resolved_target_name} ({self.target_str})]")
             for cmd in self.recept:
-                if not cmd(self.vars):
-                    exit_with_message(f"Ошибка при выполнении: {str(cmd)}", -1)
+                if isinstance(cmd, BaseTool):
+                    if not cmd._invoke(self.vars_merged):
+                        exit_with_message(f"Ошибка при выполнении: {str(cmd)}", -1)
+                else: 
+                    if not cmd(self.vars_merged):
+                        exit_with_message(f"Ошибка при выполнении: {str(cmd)}", -1)
         
         def _run_dependencies(dependency_list):
             for dependency in dependency_list:
-                dependency._invoke(self, self.vars)
+                dependency._invoke(self)
         
         need_exec, dep_list = self.need_exec_target()
         if need_exec:
@@ -199,10 +213,10 @@ class Target:
         if self.target.exists():
             dependencies_to_run = []
             for dep in self.dependencies:
-                if dep.need_exec_target():
+                if dep.need_exec_target(restore_cache):
                     dependencies_to_run.append(dep)
                 elif dep._is_file():
-                    if file1_newer_file2(dep.target_name, self.target_name):
+                    if file1_newer_file2(dep.resolved_target_name, self.resolved_target_name):
                         dependencies_to_run.append(dep)
                         
             self.exec_cond_cache = (True, dependencies_to_run)
@@ -214,44 +228,15 @@ class Target:
 
 class TargetRef:
     """Класс TargetRef управляет ссылками на целевые объекты, которые хранятся в глобальном пуле целей (_TARGET_POOL).
-    
-    Конструктор:
-    -------------
-    __init__(self, target) -> None
-        Инициализирует экземпляр класса TargetRef. Преобразует целевую задачу в строку и сохраняет её.
-
-        Параметры:
-        target : любое значение, которое может быть преобразовано в строку;
-            Имя или файл/папка.
-
-    Методы:
-    -------
-    __call__(self, vars = None)
-        Вызывает объект из глобального пула целей (_TARGET_POOL) по имени, если он существует.
-        
-        Параметры:
-        vars : dict, optional
-            Необязательный словарь переменных. 
-
-        Возвращает:
-        Объект из пула целей (_TARGET_POOL) по имени.
-
-        Исключения:
-        KeyError
-            Если целевая задача не найдена в пуле целей (_TARGET_POOL), выбрасывается исключение с соответствующим сообщением.
     """
     def __init__(self, target) -> None:
         self.target = str(target)
 
 
-    def _invoke(self, parent, vars = {}):
+    def _invoke(self, parent):
         """
         Вызывает объект из глобального пула целей (_TARGET_POOL) по имени, если он существует.
         
-        Параметры:
-        vars : dict, optional
-            Необязательный словарь переменных.
-
         Возвращает:
         Объект из пула целей (_TARGET_POOL) по имени.
 
@@ -261,38 +246,51 @@ class TargetRef:
         """
         if self.target not in _TARGET_POOL:
             raise KeyError(f"not found target {self.target} for TargetRef class")
-        return _TARGET_POOL[self.target]._invoke(parent, vars)
+        return _TARGET_POOL[self.target]._invoke(parent)
 
 
 class ConditionalTarget:
-    def __init__(self, condition, if_true: callable = None, if_false: callable = None):
+    def __init__(self, condition, if_true = None, if_false = None):
         self.if_true = if_true
         self.if_false = if_false
         self.condition = condition
 
-    def _invoke(self, parent, vars = {}):
+    def _invoke(self, parent):
         res = None
         if isinstance(self.condition, callable):
             res = self.condition()
         else:
             res = self.condition
         
+        def _invoker(obj):
+            if callable(obj):
+                obj()
+            else:
+                obj._invoke(parent)
+        
         if res:
             if self.if_true is not None:
-                self.if_true()
+                _invoker(self.if_true)
         else:
             if self.if_false is not None:
-                self.if_false()
+                _invoker(self.if_false)
         
         return True
 
 
 class TargetShellContains(Target):
-    def __init__(self, target: Path, check_command: str, dependencies: list = [], recept: list = []) -> None:
+    def __init__(self, target: Path, check_command: str, dependencies: list = [], recept: list = [], _not: bool = False) -> None:
         super().__init__(target, dependencies, recept)
         self.check_command = check_command
+        self._not = _not
     
-    def need_exec_target(self) -> bool:
+    def _is_file(self) -> bool:
+        return False
+    
+    def need_exec_target(self, restore_cache: bool = False) -> bool:
+        if self.exec_cond_cache and not restore_cache:
+            return self.exec_cond_cache
+        
         result = subprocess.run(
             self.check_command, 
             shell=True, 
@@ -301,8 +299,24 @@ class TargetShellContains(Target):
             stdout=subprocess.PIPE, 
             stderr=subprocess.PIPE
         )
+        output_contains_target = self.target_str not in result.stdout
+        if self._not:
+            output_contains_target = not output_contains_target
         
-        return self.target_name not in result.stdout
+        if not output_contains_target:
+            return (True, self.dependencies)
+        
+        deep_to_update = []
+        for dep in self.dependencies:
+            if dep.need_exec_target(restore_cache):
+                deep_to_update.append(dep)
+        
+        if not dep:
+            self.exec_cond_cache = (False, [])        
+        else:
+            self.exec_cond_cache = (True, deep_to_update)
+
+        return self.exec_cond_cache
 
 
 class TargetFileWithLine(Target):
@@ -310,7 +324,7 @@ class TargetFileWithLine(Target):
         super().__init__(target, dependencies, recept)
         self.search_line = search_line
         
-    def need_exec_target(self) -> bool:
+    def need_exec_target(self, restore_cache: bool = False) -> bool:
         with open(self.target, 'r', encoding='utf-8') as file:
             for line in file:
                 if self.search_line in line:
@@ -335,7 +349,7 @@ class ForEachFileTarget:
         self._invoke(None)
         
     
-    def _invoke(self, parent, vars = {}):
+    def _invoke(self, parent):
         fpath = str(self.target / self.pattern)
         files = glob.glob(fpath)
         if not files:
@@ -365,35 +379,6 @@ class ForEachFileTarget:
 #         refs.append(TargetRef(file))
     
 #     return refs
-
-
-
-_IMPORT_STRINGS = """
-from exechain.exechain import *
-
-"""
-
-
-def include(file) -> None:
-    """Включат файл сборки в текущий файл
-
-    Args:
-        file (Path | str): Путь до файла *.exechain
-
-    Raises:
-        FileNotFoundError: Файл не найден
-    """
-    path = _get_path(file)
-    
-    if not path.exists():
-        raise FileNotFoundError(f"error include file '{str(path)}': not found file")
-    
-    script = _IMPORT_STRINGS
-    
-    with open(path, "r") as f:
-        script += f.read()
-
-    exec(script)
 
 
 def add_folder_to_path(folder):

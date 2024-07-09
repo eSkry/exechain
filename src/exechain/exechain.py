@@ -27,8 +27,14 @@ from exechain.base import (
     TargetFileWithLine,
     get_target_by_name, 
     get_target_names,
-    include
+    set_var,
+    get_var
     # make_targets_for_files
+)
+
+from exechain.internal import (
+    include,
+    which
 )
 
 from exechain.filesystem import (

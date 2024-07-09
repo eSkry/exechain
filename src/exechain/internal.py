@@ -19,6 +19,45 @@ Copyright (c) 2024 Леонов Артур (depish.eskry@yandex.ru)
 
 import os
 import re
+import string
+from pathlib import Path
+
+
+class SafeFormatter(string.Formatter):
+    def get_value(self, key, args, kwargs):
+        if isinstance(key, str):
+            return kwargs.get(key, f'{{{key}}}')
+        else:
+            return string.Formatter.get_value(key, args, kwargs)
+
+
+_formatter = SafeFormatter()
+def safe_format(input: str, vars: dict):
+    return _formatter.format(input, **vars)
+
+
+def which(name):
+    search_dirs = os.environ["PATH"].split(os.pathsep)
+    
+    for path in search_dirs:
+        test = Path(path) / name
+        if test.is_file() and os.access(test, os.X_OK):
+            return test
+
+    return None
+
+
+def exit_with_message(message, code):
+    print(message)
+    exit(code)
+
+
+def _get_path(path) -> Path:
+    if isinstance(path, str):
+        return Path(path)
+    else:
+        return path
+
 
 
 def exchain_replace_variables(string: str, variables: dict) -> str:
@@ -55,3 +94,31 @@ def exchain_replace_variables(string: str, variables: dict) -> str:
 
 def file1_newer_file2(file1, file2):
     return os.path.getmtime(file1) > os.path.getmtime(file2)
+
+
+def include(file) -> None:
+    """Включает файл сборки в текущий файл
+
+    Args:
+        file (Path | str): Путь до файла *.exechain
+
+    Raises:
+        FileNotFoundError: Файл не найден
+    """
+    path = _get_path(file)
+    
+    if not path.exists():
+        raise FileNotFoundError(f"error include file '{str(path)}': not found file")
+    
+    script = """
+    from exechain.exechain import *
+
+    """
+
+    with open(path, "r") as f:
+        script += f.read()
+
+    exec(script)
+    
+    
+    

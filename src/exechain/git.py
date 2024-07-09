@@ -22,7 +22,7 @@ import os
 from pathlib import Path
 
 
-from exechain.base import which, _get_path
+from exechain.internal import _get_path, which, safe_format
 
 
 class GitBranch:
@@ -34,18 +34,17 @@ class GitBranch:
         if not self.git:
             raise Exception("git is not installed")
     
-        
-    def __call__(self, vars = None):
-        print(f"enter [git branch:{self.branch} in:{str(self.path)}]")
+    def _invoke(self, vars: dict = {}):
+        path = safe_format(self.path, vars)
+        branch = safe_format(branch, vars)
 
-        command = [str(self.git),  'checkout', self.branch]
+        command = [str(self.git), 'checkout', branch]
         cur_dir = os.getcwd()
-        os.chdir(str(self.path))
+        os.chdir(path)
 
-        print(f"git [command {command}]")
+        print(f"git [{command}]")
         ret = os.system(" ".join(command))
         os.chdir(cur_dir)
-        print(f"leave [git branch:{self.branch}]")
         return ret == 0
     
 
@@ -60,24 +59,23 @@ class GitRepository:
             raise Exception("git is not installed")
     
     
-    def __call__(self, vars = None) -> None:
-        print(f"enter [git clone url:{self.url} in:{self.target_directory}]")
-
-        repo_path = self.target_directory
-        if not self.target_directory:
-            name = self.url.split('/')[-1]
+    def _invoke(self, vars: dict = {}):
+        url = safe_format(self.url, vars)
+        branch = safe_format(self.branch, vars)
+        target_directory = safe_format(self.target_directory, vars)
+        
+        repo_path = target_directory
+        if not target_directory:
+            name = url.split('/')[-1]
             name = name.replace('.git', '')
             repo_path = Path(os.getcwd()) / name
         
         if not Path(repo_path).exists():
-            command = [str(self.git), 'clone', self.url, str(repo_path)]
+            command = [str(self.git), 'clone', url, str(repo_path)]
             print(f"git [command {command}]")
             ret = os.system(" ".join(command))
-        else:
-            print(f"skip [git clone {self.url}]")
             
-        if self.branch:
-            GitBranch(repo_path, self.branch)()
-        print(f"leave [git clone {self.url}]")
+        if branch:
+            GitBranch(repo_path, branch)()
         
         return True

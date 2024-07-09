@@ -17,7 +17,7 @@ Copyright (c) 2024 Леонов Артур (depish.eskry@yandex.ru)
 """
 
 from exechain.base import BaseTool
-from exechain.internal import exchain_replace_variables
+from exechain.internal import exchain_replace_variables, safe_format
 
 import os
 
@@ -27,10 +27,10 @@ class Shell(BaseTool):
         super().__init__()
         self.command = command
 
-    def __call__(self, vars = None):
-        command = exchain_replace_variables(self.command, vars) if vars else self.command
+    def _invoke(self, vars: dict = {}):
+        command = safe_format(self.command, vars)
         return os.system(command) == 0
-
+    
     def __str__(self):
         return f"Shell({self.command})"
 
@@ -40,9 +40,7 @@ class Print(BaseTool):
         super().__init__()
         self.msg = msg
 
-    def __call__(self, vars = None):
-        tmp = exchain_replace_variables(self.msg, vars) if vars else self.msg
-        
-        print(f"print [{tmp}]")
+    def _invoke(self, vars: dict = {}):
+        tmp = safe_format(self.msg, vars)
         print(tmp)
         return True
