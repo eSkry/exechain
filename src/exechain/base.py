@@ -233,7 +233,7 @@ class TargetRef:
         self.target = str(target)
 
 
-    def _invoke(self, parent):
+    def _invoke(self, parent: Target):
         """
         Вызывает объект из глобального пула целей (_TARGET_POOL) по имени, если он существует.
         
@@ -244,9 +244,13 @@ class TargetRef:
         KeyError
             Если целевая задача не найдена в пуле целей (_TARGET_POOL), выбрасывается исключение с соответствующим сообщением.
         """
-        if self.target not in _TARGET_POOL:
-            raise KeyError(f"not found target {self.target} for TargetRef class")
-        return _TARGET_POOL[self.target]._invoke(parent)
+        target = safe_format(self.target, _GLOBAL_VARIBLE_POOL)
+        if parent:
+            target = safe_format(target, parent.vars_merged)
+            
+        if target not in _TARGET_POOL:
+            raise KeyError(f"not found target {target} for TargetRef class")
+        return _TARGET_POOL[target]._invoke(parent)
 
 
 class ConditionalTarget:
