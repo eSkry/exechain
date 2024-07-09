@@ -26,6 +26,7 @@ from exechain.base import (
     TargetShellContains,
     get_target_by_name, 
     get_target_names,
+    include
     # make_targets_for_files
 )
 

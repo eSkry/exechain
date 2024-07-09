@@ -76,12 +76,59 @@ def target_pool() -> dict:
 
 
 class BaseTool:
+    """Данный класс служит меткой для обозначения подклассов инструментов.
+    
+    Инструмент - это callable который выполняется при выполнении инструкций у класса Target и его подклассов.
+    """
     def __init__(self) -> None:
         pass
 
 
 class Target:
+    """
+    Target class выполняет цепочки действий в зависимости от состояния target. (Аналогично тому как работают цели в Makefile).
+    
+    Как и у make - у класса Target целью является файл или папка. И дальшее выполнение инструкций выполняется в зависимости от состояния этой цели.
+    Если файл/папка не существует - данная цель будет выполнена.
+    Если файл/папка существует - этап сборки этой цели будет пропущен.
+    
+    При создании экземпляра класса он автоматически добавляется в пулл целей.
+    
+    Attributes
+    ----------
+    target : Path
+        Файл/папка или произвольное название - проверяемая цель для выполнения цепочки действий.
+        Если файла не существует то это означает необходимость его создать для этой цели выполняются цепочки действий по порядку,
+        сперва выполняется обработка dependecies затем recept.
+        
+    dependencies : list[&quot;callable&quot;]
+        Список зависимостей которые будут выполнены перед рецептами (recept) для сборки данного target.
+        Данные зависимости определяют что необходимо выполнить чтобы далее выполнить сборку данной цели (recept).
+        
+    recept : list[&quot;callable&quot;]
+        Инструкции которые будут выполнены. Предполагается что выполнение данных инструкций удовлетворит требование target.
+        
+    target_name : str
+        Имя цели в виде строки
+        
+    target_run_lock : bool
+        Флаг указывающий что данная цель уже выполняется. Необходимо для предотвращения циклической зависимости
+        
+    vars : dict
+        Список переменных которые будут использованы при выполнении цепочки действий. 
+        Данные переменные могут использоваться для подстановки плейсхолдеров у строк.
+    """
     def __init__(self, target: Path, dependencies: list["callable"] = [], recept: list["callable"] = []) -> None:
+        """
+        Args:
+            target (Path): Путь к файлу или папке а так же цель для выполнения цепочки действий (сборки).
+            dependencies (list[&quot;callable&quot;], optional): Список зависимостей которые будут выполнены перед рецептами (recept) для сборки данного target.. Defaults to [].
+            recept (list[&quot;callable&quot;], optional): Список зависимостей которые будут выполнены после dependencies и предполагают содание требуемого объекта target.. Defaults to [].
+
+        Raises:
+            Exception: _description_
+            Exception: _description_
+        """
         self.target: Path = _get_path(target)
         self.recept: list["callable"] = recept
         self.dependencies: list["callable"]  = dependencies
@@ -105,7 +152,7 @@ class Target:
         return f"target [{self.target_name}]"
     
     
-    def __call__(self, vars=None):
+    def __call__(self, vars = None):
         if self.target_run_lock:
            raise Exception(f"target '{str(self.target)}' already run")
         
@@ -135,10 +182,51 @@ class Target:
     
 
 class TargetRef:
+    """Класс TargetRef управляет ссылками на целевые объекты, которые хранятся в глобальном пуле целей (_TARGET_POOL).
+    
+    Конструктор:
+    -------------
+    __init__(self, target) -> None
+        Инициализирует экземпляр класса TargetRef. Преобразует целевую задачу в строку и сохраняет её.
+
+        Параметры:
+        target : любое значение, которое может быть преобразовано в строку;
+            Имя или файл/папка.
+
+    Методы:
+    -------
+    __call__(self, vars = None)
+        Вызывает объект из глобального пула целей (_TARGET_POOL) по имени, если он существует.
+        
+        Параметры:
+        vars : dict, optional
+            Необязательный словарь переменных. 
+
+        Возвращает:
+        Объект из пула целей (_TARGET_POOL) по имени.
+
+        Исключения:
+        KeyError
+            Если целевая задача не найдена в пуле целей (_TARGET_POOL), выбрасывается исключение с соответствующим сообщением.
+    """
     def __init__(self, target) -> None:
         self.target = str(target)
 
     def __call__(self, vars = None):
+        """
+        Вызывает объект из глобального пула целей (_TARGET_POOL) по имени, если он существует.
+        
+        Параметры:
+        vars : dict, optional
+            Необязательный словарь переменных.
+
+        Возвращает:
+        Объект из пула целей (_TARGET_POOL) по имени.
+
+        Исключения:
+        KeyError
+            Если целевая задача не найдена в пуле целей (_TARGET_POOL), выбрасывается исключение с соответствующим сообщением.
+        """
         if self.target not in _TARGET_POOL:
             raise KeyError(f"not found target {self.target} for TargetRef class")
         return _TARGET_POOL[self.target]()
@@ -231,3 +319,24 @@ class ForEachFileTarget:
 #         refs.append(TargetRef(file))
     
 #     return refs
+
+
+
+_IMPORT_STRINGS = """
+from exechain.exechain import *
+
+"""
+
+
+def include(file) -> None:
+    path = _get_path(file)
+    
+    if not path.exists():
+        raise Exception(f"error include file '{str(path)}': not found file")
+    
+    script = _IMPORT_STRINGS
+    
+    with open(path, "r") as f:
+        script += f.read()
+
+    exec(script)
