@@ -1,0 +1,6 @@
+
+
+
+
+class TargetCycleDenied(Exception):
+    pass

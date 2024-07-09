@@ -24,6 +24,7 @@ from exechain.base import (
     BaseTool, 
     ForEachFileTarget,
     TargetShellContains,
+    TargetFileWithLine,
     get_target_by_name, 
     get_target_names,
     include

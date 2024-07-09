@@ -26,9 +26,7 @@ import subprocess
 import glob
 import os
 
-_IS_WINDOWS = platform.system().lower() == "windows"
-_IS_LINUX = platform.system().lower() == "linux"
-_IS_MACOS = platform.system().lower() == "darwin"
+from exechain.internal import file1_newer_file2
 
 
 def which(name):
@@ -55,6 +53,7 @@ def _get_path(path) -> Path:
 
 
 _TARGET_POOL: dict = {}
+_VARIBLE_POOL: dict = {}
 
 
 def get_target_by_name(name: str ):
@@ -68,7 +67,7 @@ def get_target_names() -> list[str]:
 def exec_target(name: str):
     if name not in _TARGET_POOL:
         raise Exception(f"error target '{name}': not found")
-    return _TARGET_POOL[name]()
+    return _TARGET_POOL[name]._invoke(None)
 
 
 def target_pool() -> dict:
@@ -118,11 +117,11 @@ class Target:
         Список переменных которые будут использованы при выполнении цепочки действий. 
         Данные переменные могут использоваться для подстановки плейсхолдеров у строк.
     """
-    def __init__(self, target: Path, dependencies: list["callable"] = [], recept: list["callable"] = []) -> None:
+    def __init__(self, target: Path, dependencies: list["Target"] = [], recept: list["callable"] = []) -> None:
         """
         Args:
             target (Path): Путь к файлу или папке а так же цель для выполнения цепочки действий (сборки).
-            dependencies (list[&quot;callable&quot;], optional): Список зависимостей которые будут выполнены перед рецептами (recept) для сборки данного target.. Defaults to [].
+            dependencies (list[&quot;Target&quot;], optional): Список зависимостей которые будут выполнены перед рецептами (recept) для сборки данного target.. Defaults to [].
             recept (list[&quot;callable&quot;], optional): Список зависимостей которые будут выполнены после dependencies и предполагают содание требуемого объекта target.. Defaults to [].
 
         Raises:
@@ -131,10 +130,10 @@ class Target:
         """
         self.target: Path = _get_path(target)
         self.recept: list["callable"] = recept
-        self.dependencies: list["callable"]  = dependencies
+        self.dependencies: list["Target"]  = dependencies
         self.target_name = str(target)
 
-        if dependencies is None and recept is None:
+        if not dependencies and not recept:
             raise Exception(f"error [target {str(self.target)}: nothing to do]")
         
         if self.target_name in _TARGET_POOL:
@@ -142,43 +141,72 @@ class Target:
         
         _TARGET_POOL[self.target_name] = self
         self.target_run_lock = False
-        
+        self.exec_cond_cache = None
+                
         self.vars = {
             "target-name": self.target_name
         }
-    
+
     
     def __str__(self) -> str:
-        return f"target [{self.target_name}]"
+        return f"target '{self.target_name}'"
     
     
-    def __call__(self, vars = None):
-        if self.target_run_lock:
-           raise Exception(f"target '{str(self.target)}' already run")
-        
-        self.target_run_lock = True
-        try:
-            if self.need_exec_target():
-                print(f"enter [target {str(self.target)}]")
-                for dependency in self.dependencies:
-                    dependency(self.vars)
-                
-                for cmd in self.recept:
-                    if not cmd(self.vars):
-                        exit_with_message(f"Ошибка при выполнении: [{str(cmd)}]", -1)
-                
-                print(f"leave [target {str(self.target)}]")
-            else:
-                print(f"skip [target {str(self.target)}]")
-        except Exception as e:
-            exit_with_message(f"Ошибка при выполнении:  [{str(e)}]",  -2)
-        
-        self.target_run_lock = False
+    def _is_file(self) -> bool:
         return True
     
     
-    def need_exec_target(self) -> bool:
-        return not self.target.exists()
+    def _invoke(self, parent, vars = {}):
+        if self.target_run_lock:
+            raise Exception(f"❕ Предотвращение циклической зависимости {parent.target_name if parent else '_'} -> {self.target_name}")
+
+        self.target_run_lock = True
+        try:
+            def _run_recept():
+                print(f"🔹 target [{self.target_name}]")
+                for cmd in self.recept:
+                    if not cmd(self.vars):
+                        exit_with_message(f"Ошибка при выполнении: [{str(cmd)}]", -1)
+            
+            def _run_dependencies(dependency_list):
+                for dependency in dependency_list:
+                    dependency._invoke(self, self.vars)
+            
+            need_exec, dep_list = self.need_exec_target()
+            if need_exec:
+                _run_dependencies(dep_list)
+                _run_recept()
+            
+        except Exception as e:
+            exit_with_message(f"‼️ Ошибка при выполнении: {str(e)}",  -2)
+        self.target_run_lock = False
+
+    
+    def need_exec_target(self, restore_cache=False):
+        if self.exec_cond_cache and not restore_cache:
+            return self.exec_cond_cache
+        
+        # Если цель не существует то необходимо выполнить все для ее построения
+        if not self.target.exists():
+            return (True, self.dependencies)
+        
+        # TODO: Возможно стоит добавить кеш на результат (сохранять состояние возвращаемого значения)
+        # Так как этот метод будет вызываться множество раз при большой глубине зависимостей.
+        
+        if self.target.exists():
+            dependencies_to_run = []
+            for dep in self.dependencies:
+                if dep.need_exec_target():
+                    dependencies_to_run.append(dep)
+                elif dep._is_file():
+                    if file1_newer_file2(dep.target_name, self.target_name):
+                        dependencies_to_run.append(dep)
+                        
+            self.exec_cond_cache = (True, dependencies_to_run)
+        else:
+            self.exec_cond_cache = (False, [])
+        
+        return self.exec_cond_cache
     
 
 class TargetRef:
@@ -212,7 +240,8 @@ class TargetRef:
     def __init__(self, target) -> None:
         self.target = str(target)
 
-    def __call__(self, vars = None):
+
+    def _invoke(self, parent, vars = {}):
         """
         Вызывает объект из глобального пула целей (_TARGET_POOL) по имени, если он существует.
         
@@ -238,7 +267,7 @@ class ConditionalTarget:
         self.if_false = if_false
         self.condition = condition
 
-    def __call__(self, vars = None):
+    def _invoke(self, parent, vars = {}):
         res = None
         if isinstance(self.condition, callable):
             res = self.condition()
@@ -273,6 +302,19 @@ class TargetShellContains(Target):
         return self.target_name not in result.stdout
 
 
+class TargetFileWithLine(Target):
+    def __init__(self, target: Path, search_line: str, dependencies: list = [], recept: list = []) -> None:
+        super().__init__(target, dependencies, recept)
+        self.search_line = search_line
+        
+    def need_exec_target(self) -> bool:
+        with open(self.target, 'r', encoding='utf-8') as file:
+            for line in file:
+                if self.search_line in line:
+                    return True
+        return False
+
+
 class ForEachFileTarget:
     def __init__(self, 
                  target, 
@@ -287,9 +329,10 @@ class ForEachFileTarget:
         self.recept = recept
         self.suffix = target_suffix
 
-        self.__call__()
+        self._invoke(None)
         
-    def __call__(self, vars = None):
+    
+    def _invoke(self, parent, vars = {}):
         fpath = str(self.target / self.pattern)
         files = glob.glob(fpath)
         if not files:
@@ -329,10 +372,18 @@ from exechain.exechain import *
 
 
 def include(file) -> None:
+    """Включат файл сборки в текущий файл
+
+    Args:
+        file (Path | str): Путь до файла *.exechain
+
+    Raises:
+        FileNotFoundError: Файл не найден
+    """
     path = _get_path(file)
     
     if not path.exists():
-        raise Exception(f"error include file '{str(path)}': not found file")
+        raise FileNotFoundError(f"error include file '{str(path)}': not found file")
     
     script = _IMPORT_STRINGS
     
@@ -340,3 +391,37 @@ def include(file) -> None:
         script += f.read()
 
     exec(script)
+
+
+def add_folder_to_path(folder):
+    """Добавляет путь в переменную окружения PATH. 
+    
+    Если данный путь уже существует в переменной PATH он будет проигнорирован.
+
+    Функция поддерживает несколько типов переменной folder. Особенности имеет лишь тип dict:
+    При передачи типа dict ожидается что он будет содержать праметр с ключем 'target-name',
+    в котором будет указан путь.
+    
+    Args:
+        folder (Path | str | dict | list): Путь который необходимо добавить
+    
+    Raises:
+        Exception: Если переданный тип не поддерживается
+    """
+    folders_list = []
+    if isinstance(folder, str) or isinstance(folder, Path):
+        folders_list = [str(folder)]
+    elif isinstance(folder, dict):
+        folders_list = [folder["target-name"]]
+    elif isinstance(folder, list):
+        folders_list = [str(f) for f in folder]
+    else:
+        raise Exception(f"Unsupported type on variable 'folder': {folder}")
+    
+    tmp_path = os.environ.get("PATH")
+    for folder in folders_list:
+        if folder in tmp_path:
+            continue
+        tmp_path = f"{folder}{os.pathsep}{tmp_path}"
+
+    os.environ["PATH"] = tmp_path

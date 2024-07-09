@@ -1,4 +1,4 @@
-from exechain.exechain_system import exchain_replace_variables
+from exechain.internal import exchain_replace_variables
 
 import unittest
 

@@ -17,7 +17,7 @@ Copyright (c) 2024 Леонов Артур (depish.eskry@yandex.ru)
 """
 
 from exechain.base import BaseTool
-from exechain.exechain_system import exchain_replace_variables
+from exechain.internal import exchain_replace_variables
 
 import os
 

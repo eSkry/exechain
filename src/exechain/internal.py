@@ -17,13 +17,27 @@ Copyright (c) 2024 Леонов Артур (depish.eskry@yandex.ru)
 """
 
 
+import os
 import re
 
 
-def exchain_replace_variables(string, variables):
+def exchain_replace_variables(string: str, variables: dict) -> str:
+    """Заменяет {placholder} подстроки в строке в соответствии со словарем variables
+
+    Формат плейсхолдера '{имя_переменной}'. Например: "Эй! {name} привет!"
+    Пример вывода:
+        `print(exchain_replace_variables("Эй! {name} привет!"), {"name":"Jon"})` - Выведет "Эй! Jon привет!".
+    
+    Args:
+        string (str): Исходная строка
+        variables (dict): Словарь с переменными. Где именем является {placeholder} строки а значением строка которая встанет на место {placeholder}
+
+    Returns:
+        str: строку с замененными плейсхолдерами
+    """
     # Находим все подстроки в фигурных скобках
     placeholders = re.findall(r"\{(.*?)\}", string)
-    missing_keys = []
+    # missing_keys = []
 
     # Заменяем подстроки на значения из словаря
     for placeholder in placeholders:
@@ -37,3 +51,7 @@ def exchain_replace_variables(string, variables):
         # print(f"Missing keys in dictionary: {', '.join(missing_keys)}")
     
     return string
+
+
+def file1_newer_file2(file1, file2):
+    return os.path.getmtime(file1) > os.path.getmtime(file2)
