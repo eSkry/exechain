@@ -264,7 +264,10 @@ class ConditionalTarget:
         
         def _invoker(obj):
             if callable(obj):
-                obj()
+                if parent:
+                    obj(parent.vars_merged)
+                else:
+                    obj({})
             else:
                 obj._invoke(parent)
         
@@ -287,12 +290,14 @@ class TargetShellContains(Target):
     def _is_file(self) -> bool:
         return False
     
+
     def need_exec_target(self, restore_cache: bool = False) -> bool:
         if self.exec_cond_cache and not restore_cache:
             return self.exec_cond_cache
         
+        check_command = safe_format(self.check_command, self.vars_merged)
         result = subprocess.run(
-            self.check_command, 
+            check_command, 
             shell=True, 
             check=True, 
             text=True, 
@@ -325,9 +330,11 @@ class TargetFileWithLine(Target):
         self.search_line = search_line
         
     def need_exec_target(self, restore_cache: bool = False) -> bool:
+        search_line = safe_format(self.search_line, self.vars_merged)
+        
         with open(self.target, 'r', encoding='utf-8') as file:
             for line in file:
-                if self.search_line in line:
+                if search_line in line:
                     return True
         return False
 
@@ -349,7 +356,9 @@ class ForEachFileTarget:
         self._invoke(None)
         
     
-    def _invoke(self, parent):
+    def _invoke(self, parent: Target):
+        target = safe_format(self.target, parent.vars_merged)
+        
         fpath = str(self.target / self.pattern)
         files = glob.glob(fpath)
         if not files:
