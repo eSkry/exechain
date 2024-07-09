@@ -85,7 +85,7 @@ Target("publish",
     ]
 )
 
-TargetShellContains("git@github.com:eSkry/exechain.git", 
+TargetShellContains("github  git@github.com:eSkry/exechain.git", 
     check_command="git remote -v",
     recept=[
         Shell("git remote add github git@github.com:eSkry/exechain.git")
