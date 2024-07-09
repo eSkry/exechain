@@ -5,8 +5,8 @@ import unittest
 
 
 from test_shell import TestShellTool
-from test_variable_replacer import TestVariableReplacer
+from test_safe_formatter import TestSafeFormatter
 
 
 if __name__ == '__main__':
-    unittest.main()
+    exit(unittest.main())
