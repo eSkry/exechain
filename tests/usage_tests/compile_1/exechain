@@ -1,0 +1,25 @@
+from exechain.exechain import *
+
+
+Target("start-test",
+    dependencies = [
+        Target("main.o", 
+            dependencies = [
+                Target("main.cpp", recept=[Shell("echo 'int main() {return 0;}' > {{target.name}}")])
+            ],
+            recept=[
+                Shell("g++ main.cpp -o {{target.name}}")
+            ]
+        ),
+    ],
+    recept=[
+        Shell("gcc main.o -o main")
+    ]
+)
+
+
+Target("clean",
+    recept=[
+        Remove(["main.o", "main.cpp", "main"])
+    ]
+)
