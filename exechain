@@ -7,9 +7,12 @@ def get_package_path():
         data = tomllib.load(file)
         VERSION = data['project']['version']
     
-    return f"./dist/exechain-{VERSION}-py3-none-any.whl"
+    return VERSION, f"./dist/exechain-{VERSION}-py3-none-any.whl"
 
-PACKAGE = get_package_path()
+VERSION, PACKAGE = get_package_path()
+
+set_var("VERSION", VERSION)
+set_var("PACKAGE", PACKAGE)
 
 
 Target("all",
@@ -20,11 +23,14 @@ Target("all",
 
 Target("build",
     dependencies=[
-        TargetRef(PACKAGE)
+        TargetRef("{PACKAGE}")
     ]
 )
 
-Target(PACKAGE,
+Target("{PACKAGE}",
+    dependencies=[
+        *make_targets_for_files("./src", pattern="*.py")
+    ],
     recept=[
         Shell(f"pyproject-build")
     ]
@@ -47,7 +53,7 @@ Target("install",
         TargetRef("package")
     ],
     recept=[
-        Shell(f"pip3 install {PACKAGE}")
+        Shell("pip3 install {PACKAGE}")
     ]
 )
 
@@ -56,7 +62,7 @@ Target("reinstall",
         TargetRef("package")
     ],
     recept=[
-        Shell(f"pip3 install {PACKAGE} --force-reinstall")
+        Shell("pip3 install {PACKAGE} --force-reinstall")
     ]
 )
 
@@ -85,6 +91,20 @@ Target("publish",
     ]
 )
 
+Target("git-release",
+    dependencies=[
+        Target("git-actual-state", recept=[Shell("git pull && git fetch origin")]),
+        TargetShellContains("v{VERSION}", "git tag -l",
+            dependencies=[TargetRef("github  git@github.com:eSkry/exechain.git")],
+            recept=[
+                Shell("git tag -a v{VERSION} -m 'Обновления в CHANGELOG'"),
+                Shell("git push --tags origin"),
+                Shell("git push --tags github")
+            ]
+        )
+    ]
+)
+
 TargetShellContains("github  git@github.com:eSkry/exechain.git", 
     check_command="git remote -v",
     recept=[
@@ -94,7 +114,7 @@ TargetShellContains("github  git@github.com:eSkry/exechain.git",
 
 Target("sync-git-mirror",
     dependencies=[
-        TargetRef("git@github.com:eSkry/exechain.git")
+        TargetRef("github  git@github.com:eSkry/exechain.git")
     ],
     recept=[
         Shell("git pull && git fetch"),

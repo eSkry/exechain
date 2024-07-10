@@ -21,6 +21,7 @@ import os
 from pathlib import Path
 import json
 import shutil
+import fnmatch
 import platform
 import subprocess
 import glob
@@ -192,24 +193,24 @@ class Target:
             return self.exec_cond_cache
         
         # Если цель не существует то необходимо выполнить все для ее построения
-        if not self.target.exists():
-            return (True, self.dependencies)
-        
-        # TODO: Возможно стоит добавить кеш на результат (сохранять состояние возвращаемого значения)
-        # Так как этот метод будет вызываться множество раз при большой глубине зависимостей.
-        
-        if self.target.exists():
+        resolved_target_path = _get_path(self.resolved_target_name)
+        # Если цель не существует то необходимо выполнить все для ее построения
+        if not resolved_target_path.exists():
+            self.exec_cond_cache = (True, self.dependencies)
+        else:
             dependencies_to_run = []
             for dep in self.dependencies:
-                if dep.need_exec_target(restore_cache):
+                need_add, _ = dep.need_exec_target(restore_cache)
+                if need_add:
                     dependencies_to_run.append(dep)
                 elif dep._is_file():
                     if file1_newer_file2(dep.resolved_target_name, self.resolved_target_name):
                         dependencies_to_run.append(dep)
-                        
-            self.exec_cond_cache = (True, dependencies_to_run)
-        else:
-            self.exec_cond_cache = (False, [])
+            
+            if dependencies_to_run:
+                self.exec_cond_cache = (True, dependencies_to_run)
+            else:
+                self.exec_cond_cache = (False, [])
         
         return self.exec_cond_cache
     
@@ -331,66 +332,66 @@ class TargetFileWithLine(Target):
         return False
 
 
-class Files:
-    def __init__(self, target, file_pattern: str, depth: int = -1, first_detect_checking: bool = True) -> None:
-        self.target = target
-        self.file_pattern = file_pattern
-        self.depth = depth
-        self.first_detect_checking = first_detect_checking
+def make_targets_for_files(root_folder, pattern: str, max_depth: int = -1):
+    root_folder = safe_format_with_global(root_folder, {})
+    pattern = safe_format_with_global(pattern, {})
+    
+    target_list = []
+    
+    def recursive_search(current_folder, current_depth):
+        if current_depth > max_depth and max_depth > 0:
+            return
         
-    def _invoke(self, parent: Target):
-        target = safe_format_with_global(self.target, {})
-        
+        for entry in os.listdir(current_folder):
+            path = os.path.join(current_folder, entry)
+            
+            if os.path.isdir(path):
+                recursive_search(path, current_depth + 1)
+            elif os.path.isfile(path) and fnmatch.fnmatch(entry, pattern):
+                # target = path
+                target_list.append(Target(path))
+    
+    recursive_search(root_folder, 0)
+    return target_list
 
-class ForEachFileTarget:
-    def __init__(self, 
-                 target, 
-                 dependency: list["callable"] =[], 
-                 recept: list["callable"] = [],  
-                 glob_pattern = "*",
-                 target_suffix = None) -> None:
-        
-        self.target = _get_path(target)
-        self.pattern = glob_pattern
-        self.dependency = dependency
-        self.recept = recept
-        self.suffix = target_suffix
 
-        self._invoke(None)
+# class GlobTarget:
+#     def __init__(self, 
+#                  target, 
+#                  file_pattern,
+#                  depth: int = -1,
+#                  dependency: list["callable"] =[], 
+#                  recept: list["callable"] = [],
+#                  first_detect_checking: bool = True) -> None:
+        
+#         self.target = _get_path(target)
+#         self.pattern = file_pattern
+#         self.dependency = dependency
+#         self.recept = recept
+
+#         self._invoke(None)
         
     
-    def _invoke(self, parent: Target):
-        target = safe_format_with_global(self.target, parent.vars_merged)
+#     def _invoke(self, parent: Target):
+#         target = safe_format_with_global(self.target, parent.vars_merged)
         
-        fpath = str(self.target / self.pattern)
-        files = glob.glob(fpath)
-        if not files:
-            raise Exception(f"error target '{str(self.target)}' pattern '{fpath}' ({self.pattern}): not found files")
+#         fpath = str(self.target / self.pattern)
+#         files = glob.glob(fpath)
+#         if not files:
+#             raise Exception(f"error target '{str(self.target)}' pattern '{fpath}' ({self.pattern}): not found files")
 
-        if self.suffix:
-            suffixed = []
-            for file in files:
-                suffixed.append(
-                    Target(f"{file}{self.suffix}", dependencies=[
-                        Target(file, dependencies=self.dependency, recept=self.recept)
-                    ])
-                )
+#         if self.suffix:
+#             suffixed = []
+#             for file in files:
+#                 suffixed.append(
+#                     Target(f"{file}{self.suffix}", dependencies=[
+#                         Target(file, dependencies=self.dependency, recept=self.recept)
+#                     ])
+#                 )
                 
-            Target(self.target, dependencies=suffixed)
-        else:
-            Target(self.target, dependencies=[Target(file if not self.suffix else f"{file}{self.suffix}", dependencies=self.dependency, recept=self.recept) for file in files])
-     
-
-# def make_targets_for_files(directory, file_pattern = "*", dependencies=[], recept_appender: callable = None):
-#     target = _get_path(directory)
-#     files = glob.glob(str(target / file_pattern))
-    
-#     refs = []
-#     for file in files:
-#         Target(file, dependencies=dependencies, recept=recept_appender(file))
-#         refs.append(TargetRef(file))
-    
-#     return refs
+#             Target(self.target, dependencies=suffixed)
+#         else:
+#             Target(self.target, dependencies=[Target(file if not self.suffix else f"{file}{self.suffix}", dependencies=self.dependency, recept=self.recept) for file in files])
 
 
 def add_folder_to_path(folder):

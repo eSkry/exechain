@@ -22,11 +22,12 @@ from exechain.base import (
     TargetRef, 
     ConditionalTarget, 
     BaseTool, 
-    ForEachFileTarget,
+    # ForEachFileTarget,
     TargetShellContains,
     TargetFileWithLine,
     get_target_by_name, 
-    get_target_names
+    get_target_names,
+    make_targets_for_files
 )
 
 from exechain.internal import (
