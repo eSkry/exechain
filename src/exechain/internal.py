@@ -34,6 +34,11 @@ def get_var(name: str) -> any:
     return _GLOBAL_VARIBLE_POOL.get(name, None)
 
 
+def update_env_variables():
+    for key, value in os.environ.items():
+        _GLOBAL_VARIBLE_POOL[f"env@{key}"] = value
+
+
 class SafeFormatter(string.Formatter):
     def get_value(self, key, args, kwargs):
         if isinstance(key, str):

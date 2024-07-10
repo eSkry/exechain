@@ -124,7 +124,7 @@ class Target:
         self.exec_cond_cache = None
         
         self.vars: dict = vars
-        self.vars["target-name"] = self.target_str
+        self.vars["target@name"] = self.target_str
         self.vars_merged: dict = self.vars
         self.resolved_target_name: str = None
         self._resolve_target_name()
@@ -400,7 +400,7 @@ def add_folder_to_path(folder):
     Если данный путь уже существует в переменной PATH он будет проигнорирован.
 
     Функция поддерживает несколько типов переменной folder. Особенности имеет лишь тип dict:
-    При передачи типа dict ожидается что он будет содержать праметр с ключем 'target-name',
+    При передачи типа dict ожидается что он будет содержать праметр с ключем 'target@name',
     в котором будет указан путь.
     
     Args:
@@ -413,7 +413,7 @@ def add_folder_to_path(folder):
     if isinstance(folder, str) or isinstance(folder, Path):
         folders_list = [str(folder)]
     elif isinstance(folder, dict):
-        folders_list = [folder["target-name"]]
+        folders_list = [folder["target@name"]]
     elif isinstance(folder, list):
         folders_list = [str(f) for f in folder]
     else:
