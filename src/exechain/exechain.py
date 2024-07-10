@@ -36,7 +36,9 @@ from exechain.internal import (
     set_var,
     get_var,
     safe_format,
-    safe_format_with_global
+    safe_format_with_global,
+    jn_format,
+    jn_format_with_global,
 )
 
 from exechain.filesystem import (

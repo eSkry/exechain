@@ -22,21 +22,22 @@ import os
 from pathlib import Path
 
 
-from exechain.internal import _get_path, which, safe_format, safe_format_with_global
+from exechain.internal import _get_path, which, jn_format_with_global
 
+from jinja2 import Template
 
 class GitBranch:
     def __init__(self, path, branch):
-        self.path = path
-        self.branch = branch
+        self.raw_path: Template = Template(str(path))
+        self.raw_branch: Template = Template(branch)
         
         self.git = which('git')
         if not self.git:
             raise Exception("git is not installed")
     
     def _invoke(self, vars: dict = {}):
-        path = safe_format_with_global(self.path, vars)
-        branch = safe_format_with_global(branch, vars)
+        path = jn_format_with_global(self.raw_path, vars)
+        branch = jn_format_with_global(self.raw_branch, vars)
 
         command = [str(self.git), 'checkout', branch]
         cur_dir = os.getcwd()
@@ -50,9 +51,9 @@ class GitBranch:
 
 class GitRepository:
     def __init__(self, url, target_directory = None, branch = None) -> None:
-        self.url = url
-        self.branch = branch
-        self.target_directory = _get_path(target_directory)
+        self.raw_url = Template(url)
+        self.raw_branch = Template(branch)
+        self.raw_target_directory = Template(target_directory)
         
         self.git = which('git')
         if not self.git:
@@ -60,9 +61,9 @@ class GitRepository:
     
     
     def _invoke(self, vars: dict = {}):
-        url = safe_format_with_global(self.url, vars)
-        branch = safe_format_with_global(self.branch, vars)
-        target_directory = safe_format_with_global(self.target_directory, vars)
+        url = jn_format_with_global(self.raw_url, vars)
+        branch = jn_format_with_global(self.raw_branch, vars)
+        target_directory = jn_format_with_global(self.raw_target_directory, vars)
         
         repo_path = target_directory
         if not target_directory:

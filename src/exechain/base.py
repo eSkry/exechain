@@ -18,16 +18,18 @@ Copyright (c) 2024 Леонов Артур (depish.eskry@yandex.ru)
 
 
 import os
-from pathlib import Path
-import json
-import shutil
 import fnmatch
-import platform
 import subprocess
-import glob
-import os
+from pathlib import Path
+from jinja2 import Template
 
-from exechain.internal import _get_path, file1_newer_file2, exit_with_message, safe_format, safe_format_with_global
+from exechain.internal import (
+    _get_path, 
+    file1_newer_file2, 
+    exit_with_message, 
+    jn_format_with_global,
+    jn_format
+)
 
 
 _TARGET_POOL: dict = {}
@@ -100,7 +102,7 @@ class Target:
     def __init__(self, 
                  target: Path, 
                  dependencies: list["Target"] = [], 
-                 recept: list["callable"] = [],
+                 recept = [],
                  vars: dict = {}) -> None:
         """
         Args:
@@ -112,19 +114,19 @@ class Target:
             Exception: _description_
             Exception: _description_
         """
-        self.target: Path = _get_path(target)
-        self.recept: list["callable"] = recept
+        self.raw_target: Template = Template(target)
+        self.recept = recept
         self.dependencies: list["Target"]  = dependencies
         self.target_str = str(target)
         
         if self.target_str in _TARGET_POOL:
-            raise Exception(f"error [target {str(self.target)}: already exists]")
+            raise Exception(f"error [target {self.target_str}: already exists]")
         
         self.target_run_lock = False
         self.exec_cond_cache = None
         
         self.vars: dict = vars
-        self.vars["target@name"] = self.target_str
+        self.vars["target"] = {'name': self.target_str}
         self.vars_merged: dict = self.vars
         self.resolved_target_name: str = None
         self._resolve_target_name()
@@ -140,7 +142,7 @@ class Target:
     
     
     def _resolve_target_name(self) -> str:
-        self.resolved_target_name = safe_format_with_global(self.target_str, self.vars_merged)
+        self.resolved_target_name = jn_format_with_global(self.target_str, self.vars_merged)
         return self.resolved_target_name
     
     
@@ -219,7 +221,7 @@ class TargetRef:
     """Класс TargetRef управляет ссылками на целевые объекты, которые хранятся в глобальном пуле целей (_TARGET_POOL).
     """
     def __init__(self, target) -> None:
-        self.target = str(target)
+        self.raw_target = str(target)
 
 
     def _invoke(self, parent: Target):
@@ -233,9 +235,9 @@ class TargetRef:
         KeyError
             Если целевая задача не найдена в пуле целей (_TARGET_POOL), выбрасывается исключение с соответствующим сообщением.
         """
-        target = safe_format_with_global(self.target, {})
+        target = jn_format_with_global(self.raw_target, {})
         if parent:
-            target = safe_format(target, parent.vars_merged)
+            target = jn_format(target, parent.vars_merged)
             
         if target not in _TARGET_POOL:
             raise KeyError(f"not found target {target} for TargetRef class")
@@ -243,9 +245,9 @@ class TargetRef:
 
 
 class ConditionalTarget:
-    def __init__(self, condition, if_true = None, if_false = None):
-        self.if_true = if_true
-        self.if_false = if_false
+    def __init__(self, condition, callable_if_true = None, callable_if_false = None):
+        self.callable_if_true = callable_if_true
+        self.callable_if_false = callable_if_false
         self.condition = condition
 
     def _invoke(self, parent):
@@ -260,16 +262,16 @@ class ConditionalTarget:
                 if parent:
                     obj(parent.vars_merged)
                 else:
-                    obj({})
+                    obj(parent)
             else:
                 obj._invoke(parent)
         
         if res:
-            if self.if_true is not None:
-                _invoker(self.if_true)
+            if self.callable_if_true is not None:
+                _invoker(self.callable_if_true)
         else:
-            if self.if_false is not None:
-                _invoker(self.if_false)
+            if self.callable_if_false is not None:
+                _invoker(self.callable_if_false)
         
         return True
 
@@ -288,7 +290,7 @@ class TargetShellContains(Target):
         if self.exec_cond_cache and not restore_cache:
             return self.exec_cond_cache
         
-        check_command = safe_format_with_global(self.check_command, self.vars_merged)
+        check_command = jn_format_with_global(self.check_command, self.vars_merged)
         result = subprocess.run(
             check_command, 
             shell=True, 
@@ -323,7 +325,7 @@ class TargetFileWithLine(Target):
         self.search_line = search_line
         
     def need_exec_target(self, restore_cache: bool = False) -> bool:
-        search_line = safe_format_with_global(self.search_line, self.vars_merged)
+        search_line = jn_format_with_global(self.search_line, self.vars_merged)
         
         with open(self.target, 'r', encoding='utf-8') as file:
             for line in file:
@@ -333,8 +335,8 @@ class TargetFileWithLine(Target):
 
 
 def make_targets_for_files(root_folder, pattern: str, max_depth: int = -1):
-    root_folder = safe_format_with_global(root_folder, {})
-    pattern = safe_format_with_global(pattern, {})
+    root_folder = jn_format_with_global(root_folder, {})
+    pattern = jn_format_with_global(pattern, {})
     
     target_list = []
     
@@ -373,7 +375,7 @@ def make_targets_for_files(root_folder, pattern: str, max_depth: int = -1):
         
     
 #     def _invoke(self, parent: Target):
-#         target = safe_format_with_global(self.target, parent.vars_merged)
+#         target = jn_format_with_global(self.target, parent.vars_merged)
         
 #         fpath = str(self.target / self.pattern)
 #         files = glob.glob(fpath)

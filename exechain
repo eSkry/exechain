@@ -29,7 +29,9 @@ Target("build",
 
 Target("{PACKAGE}",
     dependencies=[
-        *make_targets_for_files("./src", pattern="*.py")
+        *make_targets_for_files("./src", pattern="*.py"),
+        Target("pyproject.toml"),
+        Target("LICENSE.md")
     ],
     recept=[
         Shell(f"pyproject-build")

@@ -17,7 +17,9 @@ Copyright (c) 2024 Леонов Артур (depish.eskry@yandex.ru)
 """
 
 from exechain.base import BaseTool
-from exechain.internal import exchain_replace_variables, safe_format, safe_format_with_global
+from exechain.internal import jn_format_with_global
+
+from jinja2 import Template
 
 import os
 
@@ -25,22 +27,22 @@ import os
 class Shell(BaseTool):
     def __init__(self, command) -> None:
         super().__init__()
-        self.command = command
+        self.raw_command: Template = Template(command)
 
     def _invoke(self, vars: dict = {}):
-        command = safe_format_with_global(self.command, vars)
+        command = jn_format_with_global(self.raw_command, vars)
         return os.system(command) == 0
     
     def __str__(self):
-        return f"Shell({self.command})"
+        return f"Shell({self.raw_command})"
 
 
 class Print(BaseTool):
     def __init__(self, msg: str):
         super().__init__()
-        self.msg = msg
+        self.raw_msg: Template = Template(msg)
 
     def _invoke(self, vars: dict = {}):
-        tmp = safe_format_with_global(self.msg, vars)
+        tmp = jn_format_with_global(self.raw_msg, vars)
         print(tmp)
         return True

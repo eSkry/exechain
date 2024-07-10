@@ -18,23 +18,24 @@ Copyright (c) 2024 Леонов Артур (depish.eskry@yandex.ru)
 
 
 from exechain.base import BaseTool
-from exechain.internal import _get_path, safe_format, safe_format_with_global
+from exechain.internal import _get_path, jn_format_with_global
 
 import shutil
 from pathlib import Path
 import os
+from jinja2 import Template
 
 
 class Copy(BaseTool):
     def __init__(self, src, dst) -> None:
         super().__init__()
-        self.src = src
-        self.dst  = dst
+        self.raw_src = src
+        self.raw_dst  = dst
 
 
     def _invoke(self, vars: dict = {}):
-        src = safe_format_with_global(self.src, vars)
-        dst = safe_format_with_global(self.dst, vars)
+        src = jn_format_with_global(self.raw_src, vars)
+        dst = jn_format_with_global(self.raw_dst, vars)
         
         _src = _get_path(src)
 
@@ -53,11 +54,11 @@ class Copy(BaseTool):
 class Makedirs(BaseTool):
     def __init__(self, dir) -> None:
         super().__init__()
-        self.dir = dir
+        self.raw_dir = dir
 
 
     def _invoke(self, vars: dict = {}):
-        dir = _get_path(safe_format_with_global(self.dir, vars))
+        dir = _get_path(jn_format_with_global(self.raw_dir, vars))
         dir.mkdir(parents=True, exist_ok=True)
         return True
 
@@ -65,11 +66,11 @@ class Makedirs(BaseTool):
 class Touch(BaseTool):
     def __init__(self, file) -> None:
         super().__init__()
-        self.file = file
+        self.raw_file = file
 
 
     def _invoke(self, vars: dict = {}):
-        file = _get_path(safe_format_with_global(self.file, vars))
+        file = _get_path(jn_format_with_global(self.raw_file, vars))
         file.touch(exist_ok=True)
         return True
 
@@ -77,19 +78,19 @@ class Touch(BaseTool):
 class WriteFile(BaseTool):
     def __init__(self, file, content, mode="w") -> None:
         super().__init__()
-        self.file = file
-        self.content = content
-        self.mode = mode
+        self.raw_file = file
+        self.raw_content = content
+        self.raw_mode = mode
     
     
     def _invoke(self, vars: dict = {}):
-        file = safe_format_with_global(self.file, vars)
-        content = safe_format_with_global(self.content, vars)
-        mode = safe_format_with_global(self.mode, vars)
+        file = jn_format_with_global(self.raw_file, vars)
+        content = jn_format_with_global(self.raw_content, vars)
+        mode = jn_format_with_global(self.raw_mode, vars)
         
         print(f"write [file: {file}]")
         with open(file, mode) as f:
-            f.write(self.content)
+            f.write(content)
             
         return True
 
@@ -97,11 +98,11 @@ class WriteFile(BaseTool):
 class Remove(BaseTool):
     def __init__(self, file_or_dir: Path) -> None:
         super().__init__()
-        self.file_of_dir = file_or_dir
+        self.raw_file_of_dir = file_or_dir
 
 
     def _invoke(self, vars: dict = {}):
-        path = _get_path(safe_format_with_global(self.file_of_dir, vars))
+        path = _get_path(jn_format_with_global(self.raw_file_of_dir, vars))
         
         print(f"remove [{path}]")
         if path.exists():
@@ -112,19 +113,19 @@ class Remove(BaseTool):
         return True
         
     def __str__(self) -> str:
-        return f"remove {self.file_of_dir}"
+        return f"remove {self.raw_file_of_dir}"
 
 
 class Chmod(BaseTool):
     def __init__(self, path: Path, mode) -> None:
         super().__init__()
-        self.target = path
-        self.mode = mode
+        self.raw_target = path
+        self.raw_mode = mode
     
 
     def _invoke(self, vars: dict = {}):
-        target = _get_path(safe_format_with_global(self.target, vars))
-        mode = safe_format_with_global(self.mode, vars)
+        target = _get_path(jn_format_with_global(self.raw_target, vars))
+        mode = jn_format_with_global(self.raw_mode, vars)
         
         print(f"chmod  [{target} mode: {mode}]")
         target.chmod(mode)

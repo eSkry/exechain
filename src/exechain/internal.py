@@ -21,6 +21,7 @@ import os
 import re
 import string
 from pathlib import Path
+from jinja2 import Template
 
 
 _GLOBAL_VARIBLE_POOL: dict = {}
@@ -35,8 +36,7 @@ def get_var(name: str) -> any:
 
 
 def update_env_variables():
-    for key, value in os.environ.items():
-        _GLOBAL_VARIBLE_POOL[f"env@{key}"] = value
+    _GLOBAL_VARIBLE_POOL["env"] = dict(os.environ.items())
 
 
 class SafeFormatter(string.Formatter):
@@ -55,6 +55,18 @@ def safe_format(input: str, vars: dict):
 def safe_format_with_global(input: str, vars: dict = {}) -> str:
     tmp = safe_format(input, _GLOBAL_VARIBLE_POOL)
     return safe_format(tmp, vars)
+
+
+def jn_format(input, vars: dict) -> str:
+    if isinstance(input, Template):
+        return input.render(**vars)
+    return Template(str(input)).render(**vars)
+
+
+def jn_format_with_global(input, vars: dict = {}) -> str:
+    if isinstance(input, Template):
+        return input.render(**vars, **_GLOBAL_VARIBLE_POOL)
+    return Template(str(input)).render(**vars, **_GLOBAL_VARIBLE_POOL)
 
 
 def which(name):
