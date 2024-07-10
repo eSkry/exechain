@@ -33,7 +33,7 @@ class Copy(BaseTool):
         self.dst: JnString = JnString(dst)
 
 
-    def _invoke(self, vars: dict = {}):
+    def _invoke(self, vars: dict):
         src = self.src.precessed_string(vars)
         dst = self.dst.precessed_string(vars)
         
@@ -57,7 +57,7 @@ class Makedirs(BaseTool):
         self.dir: JnString = JnString(dir)
 
 
-    def _invoke(self, vars: dict = {}):
+    def _invoke(self, vars: dict):
         dir = _get_path(self.dir.precessed_string(vars))
         dir.mkdir(parents=True, exist_ok=True)
         return True
@@ -69,7 +69,7 @@ class Touch(BaseTool):
         self.file: JnString = JnString(file)
 
 
-    def _invoke(self, vars: dict = {}):
+    def _invoke(self, vars: dict):
         file = _get_path(self.file.precessed_string(vars))
         file.touch(exist_ok=True)
         return True
@@ -83,7 +83,7 @@ class WriteFile(BaseTool):
         self.mode: JnString = JnString(mode)
     
     
-    def _invoke(self, vars: dict = {}):
+    def _invoke(self, vars: dict):
         file = self.file.precessed_string(vars)
         content = self.content.precessed_string(vars)
         mode = self.mode.precessed_string(vars)
@@ -96,24 +96,30 @@ class WriteFile(BaseTool):
 
 
 class Remove(BaseTool):
-    def __init__(self, file_or_dir) -> None:
+    def __init__(self, path) -> None:
         super().__init__()
-        self.file_of_dir: JnString = JnString(file_or_dir)
-
-
-    def _invoke(self, vars: dict = {}):
-        path = _get_path(self.file_of_dir.precessed_string(vars))
+        self.path_list: list["JnString"] = None
         
-        print(f"remove [{path}]")
-        if path.exists():
-            if path.is_dir():
-                shutil.rmtree(path)
-            else:
-                os.remove(path)
-        return True
+        if isinstance(path, list):
+            self.path_list = [JnString(p) for p in path]
+        else:
+            self.path_list = [JnString(path)]
+
+
+    def _invoke(self, vars: dict):
+        for path in self.path_list:
+            path = _get_path(path.precessed_string(vars))
+            
+            print(f"remove [{path}]")
+            if path.exists():
+                if path.is_dir():
+                    shutil.rmtree(path)
+                else:
+                    os.remove(path)
+            return True
         
     def __str__(self) -> str:
-        return f"remove {self.file_of_dir}"
+        return f"remove {self.path_list}"
 
 
 class Chmod(BaseTool):
@@ -123,7 +129,7 @@ class Chmod(BaseTool):
         self.mode: JnString = JnString(mode)
     
 
-    def _invoke(self, vars: dict = {}):
+    def _invoke(self, vars: dict):
         target = _get_path(self.target.precessed_string(vars))
         mode = self.mode.precessed_string(vars)
         

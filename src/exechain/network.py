@@ -30,7 +30,7 @@ class Download(BaseTool):
         self.url: JnString = JnString(url)
         self.save_path: JnString = JnString(str(save_path)) if save_path else None
     
-    def _invoke(self, vars: dict = {}):
+    def _invoke(self, vars: dict):
         url = self.url.precessed_string(vars)
         
         if self.raw_save_path is None:

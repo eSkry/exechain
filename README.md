@@ -33,7 +33,7 @@ from exechain.exechain import *
 Target("hello",
     dependencies = [
         Target("main.cpp", recept=[
-            Shell("echo 'int main() {return 0;}' > main.cpp")
+            Shell("echo 'int main() {return 0;}' > {{target.name}}")
         ])
     ],
     recept=[
@@ -59,7 +59,7 @@ ech hello
 Target("hello",
     dependencies = [
         Target("main.cpp", recept=[
-            Shell("echo 'int main() {return 0;}' > main.cpp")
+            Shell("echo 'int main() {return 0;}' > {{target.name}}")
         ])
     ],
     recept=[

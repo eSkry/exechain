@@ -33,11 +33,13 @@ update_env_variables()
 """
 
 ENTRY_POINT = """
+import traceback
 
 try:
     for target in args.targets:
         exec_target(target)
 except Exception as e:
+    print(traceback.format_exc())
     print(f"ERROR: [{e}]")
 """
 

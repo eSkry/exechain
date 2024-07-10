@@ -52,9 +52,9 @@ def safe_format(input: str, vars: dict):
     return _formatter.format(input, **vars)
 
 
-def safe_format_with_global(input: str, vars: dict = {}) -> str:
+def safe_format_with_global(input: str, vars: dict) -> str:
     tmp = safe_format(input, _GLOBAL_VARIBLE_POOL)
-    return safe_format(tmp, vars)
+    return safe_format(tmp)
 
 
 def jn_format(input, vars: dict) -> str:
@@ -63,7 +63,7 @@ def jn_format(input, vars: dict) -> str:
     return Template(str(input)).render(**vars)
 
 
-def jn_format_with_global(input, vars: dict = {}) -> str:
+def jn_format_with_global(input, vars: dict) -> str:
     if isinstance(input, Template):
         return input.render(**vars, **_GLOBAL_VARIBLE_POOL)
     return Template(str(input)).render(**vars, **_GLOBAL_VARIBLE_POOL)
@@ -73,13 +73,15 @@ class JnString:
     def __init__(self, _str: str) -> None:
         self._raw_string = str(_str)
         self._template_string: Template = Template(self._raw_string)
+        self._processed_cache: str = None
     
     @property
     def raw_string(self) -> str:
         return self._raw_string
 
-    def precessed_string(self, vars: dict = {}):
-        return self._template_string.render(**_GLOBAL_VARIBLE_POOL, **vars)
+    def precessed_string(self, vars: dict):
+        self._processed_cache = self._template_string.render(**vars, **_GLOBAL_VARIBLE_POOL)
+        return self._processed_cache
 
 
 def which(name):

@@ -33,7 +33,7 @@ class GitBranch:
         if not self.git:
             raise Exception("git is not installed")
     
-    def _invoke(self, vars: dict = {}):
+    def _invoke(self, vars: dict):
         path = self.path.precessed_string(vars)
         branch = self.branch.precessed_string(vars)
 
@@ -58,7 +58,7 @@ class GitRepository:
             raise Exception("git is not installed")
     
     
-    def _invoke(self, vars: dict = {}):
+    def _invoke(self, vars: dict):
         url = self.url.precessed_string(vars)
         branch = self.branch.precessed_string(vars)
         target_directory = self.target_directory.precessed_string(vars)

@@ -28,7 +28,6 @@ from exechain.internal import (
     file1_newer_file2, 
     exit_with_message, 
     jn_format_with_global,
-    jn_format,
     JnString
 )
 
@@ -62,7 +61,7 @@ class BaseTool:
     def __init__(self) -> None:
         pass
     
-    def _invoke(self, vars: dict = {}):
+    def _invoke(self, vars: dict = None):
         pass
 
 
@@ -78,110 +77,115 @@ class Target:
     
     Attributes
     ----------
-    target : Path
+    target : Path | str
         Файл/папка или произвольное название - проверяемая цель для выполнения цепочки действий.
         Если файла не существует то это означает необходимость его создать для этой цели выполняются цепочки действий по порядку,
         сперва выполняется обработка dependecies затем recept.
-        
+    
     dependencies : list[&quot;callable&quot;]
         Список зависимостей которые будут выполнены перед рецептами (recept) для сборки данного target.
         Данные зависимости определяют что необходимо выполнить чтобы далее выполнить сборку данной цели (recept).
         
     recept : list[&quot;callable&quot;]
         Инструкции которые будут выполнены. Предполагается что выполнение данных инструкций удовлетворит требование target.
-        
-    target_name : str
-        Имя цели в виде строки
-        
+    
     target_run_lock : bool
         Флаг указывающий что данная цель уже выполняется. Необходимо для предотвращения циклической зависимости
+    
+    user_vars : dict
+        Словарь передаваемый в __init__ как vars.
         
-    vars : dict
-        Список переменных которые будут использованы при выполнении цепочки действий. 
-        Данные переменные могут использоваться для подстановки плейсхолдеров у строк.
+    target_vars : dict
+        Словарь локальных переменных цели. Содержит такие переменные как "имя цели".
     """
     def __init__(self, 
-                 target: Path, 
-                 dependencies: list["Target"] = [], 
-                 recept = [],
-                 vars: dict = {}) -> None:
-        """
-        Args:
-            target (Path): Путь к файлу или папке а так же цель для выполнения цепочки действий (сборки).
-            dependencies (list[&quot;Target&quot;], optional): Список зависимостей которые будут выполнены перед рецептами (recept) для сборки данного target.. Defaults to [].
-            recept (list[&quot;callable&quot;], optional): Список зависимостей которые будут выполнены после dependencies и предполагают содание требуемого объекта target.. Defaults to [].
-
-        Raises:
-            Exception: _description_
-            Exception: _description_
-        """
-        self.raw_target: Template = Template(target)
-        self.recept = recept
-        self.dependencies: list["Target"]  = dependencies
-        self.target_str = str(target)
+                 target, 
+                 dependencies: list["Target"] = None, 
+                 recept = None,
+                 vars: dict = None) -> None:
+        self.target: JnString = JnString(target)
         
-        if self.target_str in _TARGET_POOL:
-            raise Exception(f"error [target {self.target_str}: already exists]")
+        if self.target.raw_string in _TARGET_POOL:
+            raise Exception(f"error [target {self.target.raw_string}: already exists]")
         
+        self.recept = recept if recept else []
+        self.dependencies: list["Target"] = dependencies if dependencies else []
         self.target_run_lock = False
-        self.exec_cond_cache = None
         
-        self.vars: dict = vars
-        self.vars["target"] = {'name': self.target_str}
-        self.vars_merged: dict = self.vars
-        self.resolved_target_name: str = None
-        self._resolve_target_name()
-        _TARGET_POOL[self.resolved_target_name] = self
-
+        self.user_vars: dict = vars if vars else {}
+        self.target_vars = {
+            'target': {
+                'name': self.target.raw_string
+            }
+        }
+        
+        # TODO: Реализовать лучший способ регистрации целей в пуле
+        _TARGET_POOL[self.target.raw_string] = self
+    
     
     def __str__(self) -> str:
-        return f"target '{self.target_str}'"
+        return self.target.raw_string
     
     
     def _is_file(self) -> bool:
+        """Вспомогательный метод для определения того, стоит ли обращаться с целью как с файлом или папкой.
+
+        Returns:
+            bool: Является ли цель файлом или папкой
+        """ 
         return True
+
     
-    
-    def _resolve_target_name(self) -> str:
-        self.resolved_target_name = jn_format_with_global(self.target_str, self.vars_merged)
-        return self.resolved_target_name
-    
-    
-    def _update_vars(self, vars: dict):
-        self.vars_merged = vars.copy()
-        self.vars_merged.update(self.vars) # Так же переопределение переменных текущими значениями
+    def _prepare_invoke_environment(self, parent):
+        """Подготавливает окружение в котором возможно резолвить переменные в строках.
         
-        return self.vars_merged
-    
+        Данный метод должен быть вызван до _invoke или непосредственно в _invoke но до обращений к переменным зависящих от окружения.
+
+        Args:
+            parent (Target): Родительская цель для получения родительских переменных
+            restore_cache (bool, optional): Предварительно удалить прошлый результат работы фукнции. Defaults to False.
+        """
+        vars_merged: dict = {}
+        if parent:
+            vars_merged = parent.user_vars.copy()
+        vars_merged.update(self.user_vars)
+        vars_merged.update(self.target_vars)
+
+        resolved_target_name = self.target.precessed_string(vars_merged)
+        
+        return {
+            'vars_merged': vars_merged,
+            'resolved_target_name': resolved_target_name
+        }
+        
     
     def _invoke(self, parent):
         # TODO: Возможно стоит ставить флаг что цель была собрана и выполнена
         
-        if parent:
-            self._update_vars(parent.vars)
-        self._resolve_target_name()
+        environment = self._prepare_invoke_environment(parent)
+        vars_merged = environment['vars_merged']
         
         if self.target_run_lock:
-            print(f"❕ Предотвращение циклической зависимости {parent.resolved_target_name if parent else '_'} -> {self.resolved_target_name}")
+            print(f"❕ Предотвращение циклической зависимости {parent.target.raw_string if parent else '_'} -> {environment['resolved_target_name']}")
             return
 
         self.target_run_lock = True
         # try:
         def _run_recept():
-            print(f"🔹 target [{self.resolved_target_name} ({self.target_str})]")
+            print(f"🔹 target [{environment['resolved_target_name']} ({self.target.raw_string})]")
             for cmd in self.recept:
                 if isinstance(cmd, BaseTool):
-                    if not cmd._invoke(self.vars_merged):
+                    if not cmd._invoke(vars_merged):
                         exit_with_message(f"Ошибка при выполнении: {str(cmd)}", -1)
                 else: 
-                    if not cmd(self.vars_merged):
+                    if not cmd(vars_merged):
                         exit_with_message(f"Ошибка при выполнении: {str(cmd)}", -1)
         
         def _run_dependencies(dependency_list):
             for dependency in dependency_list:
                 dependency._invoke(self)
         
-        need_exec, dep_list = self.need_exec_target()
+        need_exec, dep_list = self.need_exec_target(environment=environment)
         if need_exec:
             _run_dependencies(dep_list)
             _run_recept()
@@ -191,38 +195,50 @@ class Target:
         self.target_run_lock = False
 
     
-    def need_exec_target(self, restore_cache: bool = False):
-        if self.exec_cond_cache and not restore_cache:
-            return self.exec_cond_cache
+    def need_exec_target(self, parent = None, environment: dict = None):
+        """Определяет требуется ли выполнить данную цель а так же определяет список зависимостей которые требуют выполнения.
+
+        ВАЖНО! Передавать следует только один аргумент - parent либо environment. Так как если указать оба аргумента в приоритете будет environment. 
         
-        # Если цель не существует то необходимо выполнить все для ее построения
-        resolved_target_path = _get_path(self.resolved_target_name)
+        Args:
+            parent (Target, optional): Родительский объект. Defaults to None.
+            environment (dict, optional): Окружение с которым производить проверку. Defaults to None.
+
+        Returns:
+            list: Первый элемент это булево значение означающее нужно ли выполнять данную цель. 
+                Второй параметр это список зависимостей которые нужно выполнить.
+        """
+        env = None
+        if environment:
+            env = environment
+        else:
+            env = self._prepare_invoke_environment(parent)
+        
+        resolved_target_path = _get_path(env['resolved_target_name'])
         # Если цель не существует то необходимо выполнить все для ее построения
         if not resolved_target_path.exists():
-            self.exec_cond_cache = (True, self.dependencies)
+            return (True, self.dependencies)
         else:
             dependencies_to_run = []
             for dep in self.dependencies:
-                need_add, _ = dep.need_exec_target(restore_cache)
+                dep_env = dep._prepare_invoke_environment(self)
+                need_add, _ = dep.need_exec_target(environment=dep_env)
                 if need_add:
                     dependencies_to_run.append(dep)
                 elif dep._is_file():
-                    if file1_newer_file2(dep.resolved_target_name, self.resolved_target_name):
+                    if file1_newer_file2(dep_env['resolved_target_name'], env['resolved_target_name']):
                         dependencies_to_run.append(dep)
             
             if dependencies_to_run:
-                self.exec_cond_cache = (True, dependencies_to_run)
-            else:
-                self.exec_cond_cache = (False, [])
-        
-        return self.exec_cond_cache
+                return (True, dependencies_to_run)
+        return (False, [])
     
 
 class TargetRef:
     """Класс TargetRef управляет ссылками на целевые объекты, которые хранятся в глобальном пуле целей (_TARGET_POOL).
     """
     def __init__(self, target) -> None:
-        self.raw_target = str(target)
+        self.target: JnString = JnString(target)
 
 
     def _invoke(self, parent: Target):
@@ -236,13 +252,18 @@ class TargetRef:
         KeyError
             Если целевая задача не найдена в пуле целей (_TARGET_POOL), выбрасывается исключение с соответствующим сообщением.
         """
-        target = jn_format_with_global(self.raw_target, {})
-        if parent:
-            target = jn_format(target, parent.vars_merged)
+        # NOTE: Если резолвить здесь имена то невозможно будет найти цель если в имени целей используются переменные 
+        # env = {'vars_merged': {}}
+        # if parent:
+        #     env = parent._prepare_invoke_environment(parent)
             
-        if target not in _TARGET_POOL:
-            raise KeyError(f"not found target {target} for TargetRef class")
-        return _TARGET_POOL[target]._invoke(parent)
+        # target = self.target.precessed_string(env['vars_merged'])
+            
+        # if target not in _TARGET_POOL:
+        #     raise KeyError(f"not found target '{target}' for TargetRef class")
+        
+        # TODO: Сделать что-то получе чем прямое обращение к словарю
+        return _TARGET_POOL[self.target.raw_string]._invoke(parent)
 
 
 class ConditionalTarget:
@@ -278,29 +299,38 @@ class ConditionalTarget:
 
 
 class TargetShellContains(Target):
-    def __init__(self, target: Path, check_command: str, dependencies: list = [], recept: list = [], _not: bool = False) -> None:
+    def __init__(self, 
+                 target: Path, 
+                 check_command: str, 
+                 dependencies: list = None, 
+                 recept: list = None, 
+                 _not: bool = False) -> None:
         super().__init__(target, dependencies, recept)
-        self.raw_check_command = check_command
+        self.check_command: JnString = JnString(check_command)
         self._not = _not
+    
     
     def _is_file(self) -> bool:
         return False
     
 
-    def need_exec_target(self, restore_cache: bool = False) -> bool:
-        if self.exec_cond_cache and not restore_cache:
-            return self.exec_cond_cache
+    def need_exec_target(self, parent = None, environment: dict = None) -> bool:
+        env = None
+        if environment:
+            env = environment
+        else:
+            env = self._prepare_invoke_environment(parent)
         
-        check_command = jn_format_with_global(self.raw_check_command, self.vars_merged)
+        check_command = self.check_command.precessed_string(env['vars_merged'])
         result = subprocess.run(
             check_command, 
-            shell=True, 
-            check=True, 
-            text=True, 
+            shell=True,
+            check=True,
+            text=True,
             stdout=subprocess.PIPE, 
             stderr=subprocess.PIPE
         )
-        output_contains_target = self.target_str not in result.stdout
+        output_contains_target =  env['resolved_target_name'] not in result.stdout
         if self._not:
             output_contains_target = not output_contains_target
         
@@ -309,7 +339,7 @@ class TargetShellContains(Target):
         
         deep_to_update = []
         for dep in self.dependencies:
-            if dep.need_exec_target(restore_cache):
+            if dep.need_exec_target(parent=self):
                 deep_to_update.append(dep)
         
         if not dep:
@@ -324,12 +354,18 @@ class TargetShellContains(Target):
 class TargetFileWithLine(Target):
     def __init__(self, target: Path, search_line: str, dependencies: list = [], recept: list = []) -> None:
         super().__init__(target, dependencies, recept)
-        self.raw_search_line = search_line
+        self.search_line: JnString = JnString(search_line)
         
-    def need_exec_target(self, restore_cache: bool = False) -> bool:
-        search_line = jn_format_with_global(self.raw_search_line, self.vars_merged)
+    def need_exec_target(self, parent = None, environment: dict = None) -> bool:
+        env = None
+        if environment:
+            env = environment
+        else:
+            env = self._prepare_invoke_environment(parent)
         
-        with open(self.resolved_target_name, 'r', encoding='utf-8') as file:
+        search_line = self.search_line._processed_cache(env['vars_merged'])
+        
+        with open(env['resolved_target_name'], 'r', encoding='utf-8') as file:
             for line in file:
                 if search_line in line:
                     return True
@@ -416,8 +452,6 @@ def add_folder_to_path(folder):
     folders_list = []
     if isinstance(folder, str) or isinstance(folder, Path):
         folders_list = [str(folder)]
-    elif isinstance(folder, Target):
-        folders_list = [folder.resolved_target_name]
     elif isinstance(folder, list):
         folders_list = [str(f) for f in folder]
     else:
