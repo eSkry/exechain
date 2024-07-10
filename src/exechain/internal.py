@@ -69,6 +69,19 @@ def jn_format_with_global(input, vars: dict = {}) -> str:
     return Template(str(input)).render(**vars, **_GLOBAL_VARIBLE_POOL)
 
 
+class JnString:
+    def __init__(self, _str: str) -> None:
+        self._raw_string = str(_str)
+        self._template_string: Template = Template(self._raw_string)
+    
+    @property
+    def raw_string(self) -> str:
+        return self._raw_string
+
+    def precessed_string(self, vars: dict = {}):
+        return self._template_string.render(**_GLOBAL_VARIBLE_POOL, **vars)
+
+
 def which(name):
     search_dirs = os.environ["PATH"].split(os.pathsep)
     

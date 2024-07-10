@@ -18,9 +18,7 @@ Copyright (c) 2024 Леонов Артур (depish.eskry@yandex.ru)
 
 
 from exechain.base import BaseTool
-from exechain.internal import _get_path, jn_format_with_global
-
-from jinja2 import Template
+from exechain.internal import JnString, _get_path
 
 import requests
 import os
@@ -29,16 +27,16 @@ import os
 class Download(BaseTool):
     def __init__(self, url, save_path = None) -> None:
         super().__init__()
-        self.raw_url: Template = Template(url)
-        self.raw_save_path: Template = Template(str(save_path)) if save_path else None
+        self.url: JnString = JnString(url)
+        self.save_path: JnString = JnString(str(save_path)) if save_path else None
     
     def _invoke(self, vars: dict = {}):
-        url = jn_format_with_global(self.raw_url, vars)
+        url = self.url.precessed_string(vars)
         
         if self.raw_save_path is None:
             self.raw_save_path = url.split('/')[-1]
 
-        path = _get_path(jn_format_with_global(self.raw_save_path, vars))
+        path = _get_path(self.save_path.precessed_string(vars))
         
         print(f"download [url: {url} save_path: {path}]")
         try:

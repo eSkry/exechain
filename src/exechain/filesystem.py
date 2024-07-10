@@ -18,7 +18,7 @@ Copyright (c) 2024 Леонов Артур (depish.eskry@yandex.ru)
 
 
 from exechain.base import BaseTool
-from exechain.internal import _get_path, jn_format_with_global
+from exechain.internal import _get_path, JnString
 
 import shutil
 from pathlib import Path
@@ -29,13 +29,13 @@ from jinja2 import Template
 class Copy(BaseTool):
     def __init__(self, src, dst) -> None:
         super().__init__()
-        self.raw_src = src
-        self.raw_dst  = dst
+        self.src: JnString = JnString(src)
+        self.dst: JnString = JnString(dst)
 
 
     def _invoke(self, vars: dict = {}):
-        src = jn_format_with_global(self.raw_src, vars)
-        dst = jn_format_with_global(self.raw_dst, vars)
+        src = self.src.precessed_string(vars)
+        dst = self.dst.precessed_string(vars)
         
         _src = _get_path(src)
 
@@ -54,11 +54,11 @@ class Copy(BaseTool):
 class Makedirs(BaseTool):
     def __init__(self, dir) -> None:
         super().__init__()
-        self.raw_dir = dir
+        self.dir: JnString = JnString(dir)
 
 
     def _invoke(self, vars: dict = {}):
-        dir = _get_path(jn_format_with_global(self.raw_dir, vars))
+        dir = _get_path(self.dir.precessed_string(vars))
         dir.mkdir(parents=True, exist_ok=True)
         return True
 
@@ -66,11 +66,11 @@ class Makedirs(BaseTool):
 class Touch(BaseTool):
     def __init__(self, file) -> None:
         super().__init__()
-        self.raw_file = file
+        self.file: JnString = JnString(file)
 
 
     def _invoke(self, vars: dict = {}):
-        file = _get_path(jn_format_with_global(self.raw_file, vars))
+        file = _get_path(self.file.precessed_string(vars))
         file.touch(exist_ok=True)
         return True
 
@@ -78,15 +78,15 @@ class Touch(BaseTool):
 class WriteFile(BaseTool):
     def __init__(self, file, content, mode="w") -> None:
         super().__init__()
-        self.raw_file = file
-        self.raw_content = content
-        self.raw_mode = mode
+        self.file: JnString = JnString(file)
+        self.content: JnString = JnString(content)
+        self.mode: JnString = JnString(mode)
     
     
     def _invoke(self, vars: dict = {}):
-        file = jn_format_with_global(self.raw_file, vars)
-        content = jn_format_with_global(self.raw_content, vars)
-        mode = jn_format_with_global(self.raw_mode, vars)
+        file = self.file.precessed_string(vars)
+        content = self.content.precessed_string(vars)
+        mode = self.mode.precessed_string(vars)
         
         print(f"write [file: {file}]")
         with open(file, mode) as f:
@@ -96,13 +96,13 @@ class WriteFile(BaseTool):
 
 
 class Remove(BaseTool):
-    def __init__(self, file_or_dir: Path) -> None:
+    def __init__(self, file_or_dir) -> None:
         super().__init__()
-        self.raw_file_of_dir = file_or_dir
+        self.file_of_dir: JnString = JnString(file_or_dir)
 
 
     def _invoke(self, vars: dict = {}):
-        path = _get_path(jn_format_with_global(self.raw_file_of_dir, vars))
+        path = _get_path(self.file_of_dir.precessed_string(vars))
         
         print(f"remove [{path}]")
         if path.exists():
@@ -113,19 +113,19 @@ class Remove(BaseTool):
         return True
         
     def __str__(self) -> str:
-        return f"remove {self.raw_file_of_dir}"
+        return f"remove {self.file_of_dir}"
 
 
 class Chmod(BaseTool):
     def __init__(self, path: Path, mode) -> None:
         super().__init__()
-        self.raw_target = path
-        self.raw_mode = mode
+        self.target: JnString = JnString(path)
+        self.mode: JnString = JnString(mode)
     
 
     def _invoke(self, vars: dict = {}):
-        target = _get_path(jn_format_with_global(self.raw_target, vars))
-        mode = jn_format_with_global(self.raw_mode, vars)
+        target = _get_path(self.target.precessed_string(vars))
+        mode = self.mode.precessed_string(vars)
         
         print(f"chmod  [{target} mode: {mode}]")
         target.chmod(mode)

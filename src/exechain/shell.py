@@ -17,9 +17,7 @@ Copyright (c) 2024 Леонов Артур (depish.eskry@yandex.ru)
 """
 
 from exechain.base import BaseTool
-from exechain.internal import jn_format_with_global
-
-from jinja2 import Template
+from exechain.internal import JnString
 
 import os
 
@@ -27,22 +25,22 @@ import os
 class Shell(BaseTool):
     def __init__(self, command) -> None:
         super().__init__()
-        self.raw_command: Template = Template(command)
+        self.command: JnString = JnString(command)
 
     def _invoke(self, vars: dict = {}):
-        command = jn_format_with_global(self.raw_command, vars)
+        command = self.command.precessed_string(vars)
         return os.system(command) == 0
     
     def __str__(self):
-        return f"Shell({self.raw_command})"
+        return f"Shell({self.command.raw_string})"
 
 
 class Print(BaseTool):
     def __init__(self, msg: str):
         super().__init__()
-        self.raw_msg: Template = Template(msg)
+        self.msg: JnString = JnString(msg)
 
     def _invoke(self, vars: dict = {}):
-        tmp = jn_format_with_global(self.raw_msg, vars)
+        tmp = self.msg.precessed_string(vars)
         print(tmp)
         return True

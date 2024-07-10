@@ -28,12 +28,13 @@ from exechain.exechain import *
 from exechain.base import exec_target, target_pool, get_target_names
 from exechain.internal import update_env_variables
 
+
+update_env_variables()
 """
 
 ENTRY_POINT = """
 
 try:
-    update_env_variables()
     for target in args.targets:
         exec_target(target)
 except Exception as e:

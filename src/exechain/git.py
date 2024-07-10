@@ -21,23 +21,21 @@ import subprocess
 import os
 from pathlib import Path
 
+from exechain.internal import _get_path, which, JnString
 
-from exechain.internal import _get_path, which, jn_format_with_global
-
-from jinja2 import Template
 
 class GitBranch:
     def __init__(self, path, branch):
-        self.raw_path: Template = Template(str(path))
-        self.raw_branch: Template = Template(branch)
+        self.path: JnString = JnString(str(path))
+        self.branch: JnString = JnString(branch)
         
         self.git = which('git')
         if not self.git:
             raise Exception("git is not installed")
     
     def _invoke(self, vars: dict = {}):
-        path = jn_format_with_global(self.raw_path, vars)
-        branch = jn_format_with_global(self.raw_branch, vars)
+        path = self.path.precessed_string(vars)
+        branch = self.branch.precessed_string(vars)
 
         command = [str(self.git), 'checkout', branch]
         cur_dir = os.getcwd()
@@ -51,9 +49,9 @@ class GitBranch:
 
 class GitRepository:
     def __init__(self, url, target_directory = None, branch = None) -> None:
-        self.raw_url = Template(url)
-        self.raw_branch = Template(branch)
-        self.raw_target_directory = Template(target_directory)
+        self.url: JnString = JnString(url)
+        self.branch: JnString = JnString(branch)
+        self.target_directory: JnString = JnString(target_directory)
         
         self.git = which('git')
         if not self.git:
@@ -61,9 +59,9 @@ class GitRepository:
     
     
     def _invoke(self, vars: dict = {}):
-        url = jn_format_with_global(self.raw_url, vars)
-        branch = jn_format_with_global(self.raw_branch, vars)
-        target_directory = jn_format_with_global(self.raw_target_directory, vars)
+        url = self.url.precessed_string(vars)
+        branch = self.branch.precessed_string(vars)
+        target_directory = self.target_directory.precessed_string(vars)
         
         repo_path = target_directory
         if not target_directory:

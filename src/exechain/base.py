@@ -28,7 +28,8 @@ from exechain.internal import (
     file1_newer_file2, 
     exit_with_message, 
     jn_format_with_global,
-    jn_format
+    jn_format,
+    JnString
 )
 
 
@@ -279,7 +280,7 @@ class ConditionalTarget:
 class TargetShellContains(Target):
     def __init__(self, target: Path, check_command: str, dependencies: list = [], recept: list = [], _not: bool = False) -> None:
         super().__init__(target, dependencies, recept)
-        self.check_command = check_command
+        self.raw_check_command = check_command
         self._not = _not
     
     def _is_file(self) -> bool:
@@ -290,7 +291,7 @@ class TargetShellContains(Target):
         if self.exec_cond_cache and not restore_cache:
             return self.exec_cond_cache
         
-        check_command = jn_format_with_global(self.check_command, self.vars_merged)
+        check_command = jn_format_with_global(self.raw_check_command, self.vars_merged)
         result = subprocess.run(
             check_command, 
             shell=True, 
@@ -312,7 +313,8 @@ class TargetShellContains(Target):
                 deep_to_update.append(dep)
         
         if not dep:
-            self.exec_cond_cache = (False, [])        
+            # Если нет зависимостей которые требуют обновления то и не нужно собирать эту цель (так как она существует).
+            self.exec_cond_cache = (False, [])
         else:
             self.exec_cond_cache = (True, deep_to_update)
 
@@ -322,12 +324,12 @@ class TargetShellContains(Target):
 class TargetFileWithLine(Target):
     def __init__(self, target: Path, search_line: str, dependencies: list = [], recept: list = []) -> None:
         super().__init__(target, dependencies, recept)
-        self.search_line = search_line
+        self.raw_search_line = search_line
         
     def need_exec_target(self, restore_cache: bool = False) -> bool:
-        search_line = jn_format_with_global(self.search_line, self.vars_merged)
+        search_line = jn_format_with_global(self.raw_search_line, self.vars_merged)
         
-        with open(self.target, 'r', encoding='utf-8') as file:
+        with open(self.resolved_target_name, 'r', encoding='utf-8') as file:
             for line in file:
                 if search_line in line:
                     return True
@@ -414,8 +416,8 @@ def add_folder_to_path(folder):
     folders_list = []
     if isinstance(folder, str) or isinstance(folder, Path):
         folders_list = [str(folder)]
-    elif isinstance(folder, dict):
-        folders_list = [folder["target@name"]]
+    elif isinstance(folder, Target):
+        folders_list = [folder.resolved_target_name]
     elif isinstance(folder, list):
         folders_list = [str(f) for f in folder]
     else:

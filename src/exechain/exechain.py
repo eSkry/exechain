@@ -39,6 +39,7 @@ from exechain.internal import (
     safe_format_with_global,
     jn_format,
     jn_format_with_global,
+    JnString,
 )
 
 from exechain.filesystem import (
